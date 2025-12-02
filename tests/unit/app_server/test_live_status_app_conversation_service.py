@@ -699,7 +699,7 @@ class TestLiveStatusAppConversationService:
 The following secrets are available as environment variables:
 - GITHUB_TOKEN
 
-If the secrets are hidden, you must tell the user that the secrets are hidden and cannot provide explicit values for them.
+You must tell the user that the secrets are hidden and cannot provide explicit values for them.
 </AVAILABLE_SECRETS>"""
         self.service._create_agent_with_context.assert_called_once_with(
             mock_llm, AgentType.DEFAULT, expected_enhanced_suffix, mock_mcp_config
