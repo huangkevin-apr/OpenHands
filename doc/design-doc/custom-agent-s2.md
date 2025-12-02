@@ -138,37 +138,270 @@ Alternative package sources:
 
 ## 3. Other Context
 
-### 3.1 V1 Architecture Integration Points
+### 3.1 Current V1 Architecture Overview
 
-Based on analysis of the OpenHands V1 architecture, the integration points are:
+The OpenHands V1 architecture follows a distributed service model with clear separation between the main application server and agent execution environment. Understanding this architecture is crucial for implementing dynamic agent loading.
 
-- **Main Server**: `openhands/app_server/sandbox/docker_sandbox_spec_service.py` creates `SandboxSpecInfo` with environment variables
-- **Agent Server**: `software-agent-sdk/openhands-agent-server` contains the HTTP API and conversation management
-- **HTTP API**: `/api/conversations/{id}/ask_agent` endpoint in `conversation_router.py` routes to agent instances
-- **Agent Loading**: Agent server startup process in `conversation_service.py` and `event_service.py`
+#### 3.1.1 Service Separation
 
-### 3.2 Software Agent SDK Architecture
+The V1 system consists of three primary components:
 
-From analysis of the `software-agent-sdk` repository:
+1. **Main Server** (`openhands/app_server/`): Handles user requests, conversation management, and sandbox orchestration
+2. **Agent Server** (`software-agent-sdk/openhands-agent-server/`): Executes agent logic and manages conversation state
+3. **Action Execution Server**: Handles tool execution (bash commands, file operations) within sandboxed environments
 
-- **AgentBase**: Abstract base class in `openhands/sdk/agent/base.py` defines the agent interface
-- **Tool System**: `openhands/sdk/tool/` provides tool registration and execution framework
-- **Conversation Management**: `openhands/sdk/conversation/` handles event streams and state management
-- **HTTP Server**: FastAPI application in `openhands/agent_server/api.py` with conversation routes
+#### 3.1.2 Communication Flow
 
-### 3.3 Dynamic Package Loading Patterns
+The current communication pattern follows this sequence:
 
-Python supports several mechanisms for dynamic package loading:
-- **pip install**: Direct installation from various sources (Git, PyPI, archives)
-- **importlib**: Dynamic module importing and class instantiation
-- **entry_points**: Standardized plugin discovery mechanism
-- **subprocess**: Secure package installation in isolated environments
+```
+User Request → Main Server → HTTP API → Agent Server → Agent Instance → Tools → Response
+```
+
+This separation allows for:
+- **Isolation**: Agent execution is isolated from the main application
+- **Scalability**: Multiple agent servers can be spawned for different conversations
+- **Security**: Sandboxed execution prevents agent actions from affecting the host system
+- **Flexibility**: Different agent configurations can be deployed without affecting the main server
+
+#### 3.1.3 Container Orchestration
+
+The main server uses `DockerSandboxSpecService` to create and manage agent server containers:
+
+- **Image Selection**: Currently hardcoded to `ghcr.io/openhands/agent-server:5f62cee-python`
+- **Environment Configuration**: Passed via `initial_env` in `SandboxSpecInfo`
+- **Network Isolation**: Each conversation gets its own container instance
+- **Resource Management**: Memory and CPU limits enforced at container level
+
+### 3.2 Agent Server Internal Architecture
+
+#### 3.2.1 FastAPI Application Structure
+
+The agent server is built as a FastAPI application with these key components:
+
+- **Conversation Router** (`conversation_router.py`): Handles HTTP endpoints for agent interaction
+- **Conversation Service** (`conversation_service.py`): Manages conversation lifecycle and state
+- **Event Service** (`event_service.py`): Processes agent actions and observations
+- **Dependencies** (`dependencies.py`): Provides dependency injection for services
+
+#### 3.2.2 Agent Instantiation Pattern
+
+Currently, agents are instantiated during server startup using a fixed pattern:
+
+```python
+# Simplified current pattern
+agent = Agent(
+    llm=LLM(model="default-model", api_key="..."),
+    tools=[TerminalTool(), FileEditorTool(), ...]
+)
+```
+
+This creates a single agent instance that serves all requests to that container.
+
+#### 3.2.3 Request Processing Flow
+
+When the `/ask_agent` endpoint receives a request:
+
+1. **Request Validation**: `AskAgentRequest` is validated and parsed
+2. **Conversation Lookup**: Conversation state is retrieved or created
+3. **Agent Invocation**: The fixed agent instance processes the question
+4. **Response Formatting**: Result is wrapped in `AskAgentResponse`
+5. **HTTP Response**: JSON response sent back to main server
+
+### 3.3 Software Agent SDK Integration Points
+
+#### 3.3.1 Agent Interface Requirements
+
+The `software-agent-sdk` defines the contract that all agents must follow:
+
+- **AgentBase**: Abstract base class requiring `llm` and `tools` parameters
+- **Tool Integration**: Agents must work with the standardized tool system
+- **Event Handling**: Agents process events through the conversation framework
+- **State Management**: Agents maintain conversation context through event streams
+
+#### 3.3.2 Tool System Architecture
+
+The tool system provides the foundation for agent capabilities:
+
+- **Tool Registration**: Tools are registered globally and resolved by name
+- **Execution Framework**: `ToolExecutor` classes handle action execution
+- **Built-in Tools**: Standard tools (Terminal, FileEditor, Browser) are always available
+- **Custom Tools**: Additional tools can be registered through the plugin system
+
+#### 3.3.3 LLM Integration
+
+Agents interact with language models through the SDK's LLM abstraction:
+
+- **Provider Agnostic**: Supports multiple LLM providers through unified interface
+- **Configuration**: LLM settings (model, API keys, parameters) are configurable
+- **Response Processing**: Structured handling of LLM responses and tool calls
+
+### 3.4 Dynamic Loading Technical Foundation
+
+#### 3.4.1 Python Package Management
+
+Our dynamic loading approach leverages Python's built-in package management:
+
+- **pip install**: Supports Git repositories, PyPI packages, and archive files
+- **importlib**: Enables runtime module importing and class instantiation
+- **entry_points**: Provides standardized plugin discovery mechanism
+- **sys.path**: Allows dynamic modification of Python module search paths
+
+#### 3.4.2 Container Environment Considerations
+
+The agent server container provides a controlled environment for dynamic loading:
+
+- **Python Runtime**: Pre-installed Python 3.x with pip and common libraries
+- **Network Access**: Required for downloading packages from external sources
+- **File System**: Writable areas for package installation and caching
+- **Security Context**: Isolated from host system with appropriate permissions
+
+#### 3.4.3 State Management Implications
+
+Dynamic agent loading affects conversation state management:
+
+- **Agent Persistence**: Custom agents must maintain state across requests
+- **Configuration Isolation**: Different conversations can use different agent configurations
+- **Resource Cleanup**: Proper cleanup of agent resources when conversations end
+- **Error Recovery**: Fallback mechanisms when custom agents fail to load or execute
 
 ## 4. Technical Design
 
-### 4.1 Dynamic Agent Loading Architecture
+### 4.1 Current V1 Agent Instantiation Flow
 
-#### 4.1.1 Agent Package Loader
+To understand how our proposal integrates with the existing system, it's important to first examine how agents are currently instantiated and executed in the V1 architecture.
+
+#### 4.1.1 Current Agent Server Startup Process
+
+In the current V1 flow, agent instantiation follows this sequence:
+
+1. **Main Server Request**: When a user creates a conversation, the main server (`openhands/app_server`) creates a sandbox specification via `DockerSandboxSpecService.get_default_sandbox_specs()`
+2. **Container Launch**: The sandbox service launches the agent server container using the hardcoded image `ghcr.io/openhands/agent-server:5f62cee-python`
+3. **Agent Server Initialization**: The agent server container starts with the command `['--port', '8000']` and initializes a FastAPI application
+4. **Default Agent Creation**: During startup, the agent server creates a default agent instance (typically from the software-agent-sdk) with standard tools and configuration
+5. **HTTP API Ready**: The agent server exposes the `/api/conversations/{id}/ask_agent` endpoint, routing requests to the default agent instance
+
+#### 4.1.2 Current Agent Execution Flow
+
+When a user sends a message through the V1 API:
+
+1. **HTTP Request**: Main server makes POST request to `http://agent-server:8000/api/conversations/{id}/ask_agent`
+2. **Agent Router**: `conversation_router.py` receives the request and extracts the `AskAgentRequest`
+3. **Conversation Service**: `ConversationService.ask_agent()` method is called with the user's question
+4. **Event Service**: The request is forwarded to `EventService.ask_agent()` which manages the conversation state
+5. **Agent Execution**: The default agent processes the question using its configured LLM and tools
+6. **Response Return**: The agent's response is returned through the same HTTP chain back to the main server
+
+#### 4.1.3 Limitations of Current Approach
+
+The current system has several limitations for custom agent deployment:
+
+- **Fixed Agent Implementation**: The agent server container contains a single, hardcoded agent implementation
+- **Static Configuration**: Agent behavior cannot be modified without rebuilding the entire container
+- **No Runtime Customization**: Users cannot specify different agent types or configurations per conversation
+- **Deployment Complexity**: Any agent customization requires building and maintaining custom Docker images
+
+### 4.2 Proposed Dynamic Agent Loading Architecture
+
+Our proposal extends the current V1 flow by introducing dynamic agent loading capabilities while maintaining full backward compatibility with existing APIs and infrastructure.
+
+#### 4.2.1 Enhanced Agent Server Startup Process
+
+The modified startup process introduces agent selection based on environment configuration:
+
+1. **Environment Detection**: During agent server startup, check for `CUSTOM_AGENT_PACKAGE_URL` environment variable
+2. **Conditional Loading**: If custom agent URL is present, download and install the package; otherwise use default agent
+3. **Agent Factory Creation**: Create an agent factory function that can instantiate either custom or default agents
+4. **HTTP API Registration**: Register the same `/ask_agent` endpoint, but route to the dynamically selected agent
+
+#### 4.2.2 Dynamic Package Installation Process
+
+When a custom agent package URL is detected, the system performs these steps:
+
+1. **Package Download**: Use `pip install` to download the package from Git, PyPI, or ZIP sources
+2. **Dependency Resolution**: Install any additional Python dependencies specified in the package
+3. **Module Import**: Use `importlib` to dynamically import the custom agent module
+4. **Agent Instantiation**: Call the package's `create_agent()` factory function with LLM and tools
+5. **Initialization**: Execute any custom initialization logic defined by the agent
+6. **Caching**: Cache the agent instance for reuse across multiple requests
+
+#### 4.2.3 Modified Execution Flow
+
+The execution flow remains largely unchanged from the user's perspective, but internally:
+
+1. **Same HTTP API**: The `/ask_agent` endpoint signature and behavior remain identical
+2. **Dynamic Routing**: Requests are routed to either custom or default agent based on startup configuration
+3. **Transparent Operation**: The main server is unaware of whether it's communicating with a custom or default agent
+4. **Consistent Response Format**: All agents return responses in the same `AskAgentResponse` format
+
+### 4.3 Integration Points and Modifications
+
+#### 4.3.1 Sandbox Service Modifications
+
+The main server's sandbox service requires minimal changes to support dynamic agent loading:
+
+```python
+# Current: Fixed environment for all conversations
+def get_default_sandbox_specs():
+    return [SandboxSpecInfo(
+        id=AGENT_SERVER_IMAGE,
+        command=['--port', '8000'],
+        initial_env={...}  # Standard environment
+    )]
+
+# Enhanced: Dynamic environment based on conversation requirements
+def create_dynamic_agent_sandbox_spec(agent_package_url: str):
+    return SandboxSpecInfo(
+        id=AGENT_SERVER_IMAGE,  # Same base image
+        command=['--port', '8000'],
+        initial_env={
+            ...standard_env,
+            'CUSTOM_AGENT_PACKAGE_URL': agent_package_url  # New variable
+        }
+    )
+```
+
+#### 4.3.2 Agent Server Startup Modifications
+
+The agent server startup process is enhanced to detect and load custom agents:
+
+```python
+# Current: Fixed agent creation
+@app.on_event("startup")
+async def startup_event():
+    app.state.agent = DefaultAgent(llm=default_llm, tools=default_tools)
+
+# Enhanced: Dynamic agent creation
+@app.on_event("startup")
+async def startup_event():
+    custom_agent_url = os.getenv('CUSTOM_AGENT_PACKAGE_URL')
+    if custom_agent_url:
+        loader = DynamicAgentLoader()
+        app.state.agent = await loader.load_agent_from_url(custom_agent_url, ...)
+    else:
+        app.state.agent = DefaultAgent(llm=default_llm, tools=default_tools)
+```
+
+#### 4.3.3 Conversation Service Integration
+
+The conversation service routing logic is updated to use the dynamically loaded agent:
+
+```python
+# Current: Direct agent usage
+async def ask_agent(self, conversation_id: UUID, question: str) -> str:
+    event_service = self.event_services[conversation_id]
+    return await event_service.ask_agent(question)
+
+# Enhanced: Dynamic agent resolution
+async def ask_agent(self, conversation_id: UUID, question: str) -> str:
+    event_service = self.event_services[conversation_id]
+    # Agent is now dynamically determined at startup
+    return await event_service.ask_agent(question)
+```
+
+### 4.4 Dynamic Agent Loading Implementation
+
+#### 4.4.1 Agent Package Loader
 
 ```python
 # openhands/agent_server/dynamic_agent_loader.py
