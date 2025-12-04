@@ -14,16 +14,21 @@ const MOCK_ME: Omit<OrganizationMember, "role"> = {
 export const INITIAL_MOCK_ORGS: Organization[] = [
   {
     id: "1",
+    name: "Personal Workspace",
+    balance: 100,
+  },
+  {
+    id: "2",
     name: "Acme Corp",
     balance: 1000,
   },
   {
-    id: "2",
+    id: "3",
     name: "Beta LLC",
     balance: 500,
   },
   {
-    id: "3",
+    id: "4",
     name: "All Hands AI",
     balance: 750,
   },
@@ -31,6 +36,14 @@ export const INITIAL_MOCK_ORGS: Organization[] = [
 
 export const ORGS_AND_MEMBERS: Record<string, OrganizationMember[]> = {
   "1": [
+    {
+      id: "99",
+      email: "me@acme.org",
+      role: "superadmin",
+      status: "active",
+    },
+  ],
+  "2": [
     {
       id: "1",
       email: "alice@acme.org",
@@ -50,7 +63,7 @@ export const ORGS_AND_MEMBERS: Record<string, OrganizationMember[]> = {
       status: "active",
     },
   ],
-  "2": [
+  "3": [
     {
       id: "4",
       email: "tony@gamma.org",
@@ -64,7 +77,7 @@ export const ORGS_AND_MEMBERS: Record<string, OrganizationMember[]> = {
       status: "active",
     },
   ],
-  "3": [
+  "4": [
     {
       id: "6",
       email: "robert@all-hands.dev",
@@ -120,13 +133,16 @@ export const ORG_HANDLERS = [
 
     let role: OrganizationUserRole = "user";
     switch (orgId) {
-      case "1":
+      case "1": // Personal Workspace
         role = "superadmin";
         break;
-      case "2":
+      case "2": // Acme Corp
+        role = "superadmin";
+        break;
+      case "3": // Beta LLC
         role = "user";
         break;
-      case "3":
+      case "4": // All Hands AI
         role = "admin";
         break;
       default:

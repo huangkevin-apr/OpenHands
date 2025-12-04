@@ -96,9 +96,9 @@ describe("Manage Team Route", () => {
 
     expect(getOrganizationMembersSpy).not.toHaveBeenCalled();
 
-    await selectOrganization({ orgIndex: 0 });
+    await selectOrganization({ orgIndex: 1 }); // Acme Corp
     expect(getOrganizationMembersSpy).toHaveBeenCalledExactlyOnceWith({
-      orgId: "1",
+      orgId: "2",
     });
   });
 
@@ -106,8 +106,8 @@ describe("Manage Team Route", () => {
     renderManageOrganizationMembers();
     await screen.findByTestId("manage-organization-members-settings");
 
-    await selectOrganization({ orgIndex: 0 });
-    const members = ORGS_AND_MEMBERS["1"];
+    await selectOrganization({ orgIndex: 1 }); // Acme Corp
+    const members = ORGS_AND_MEMBERS["2"];
 
     const memberListItems = await screen.findAllByTestId("member-item");
     expect(memberListItems).toHaveLength(members.length);
@@ -127,7 +127,7 @@ describe("Manage Team Route", () => {
     renderManageOrganizationMembers();
     await screen.findByTestId("manage-organization-members-settings");
 
-    await selectOrganization({ orgIndex: 0 });
+    await selectOrganization({ orgIndex: 1 }); // Acme Corp
 
     const memberListItems = await screen.findAllByTestId("member-item");
     const userRoleMember = memberListItems[2]; // third member is "user"
@@ -143,7 +143,7 @@ describe("Manage Team Route", () => {
 
     expect(updateMemberRoleSpy).toHaveBeenCalledExactlyOnceWith({
       userId: "3", // assuming the third member is the one being updated
-      orgId: "1",
+      orgId: "2",
       role: "admin",
     });
     expect(
@@ -164,7 +164,7 @@ describe("Manage Team Route", () => {
 
     expect(updateMemberRoleSpy).toHaveBeenNthCalledWith(2, {
       userId: "3",
-      orgId: "1",
+      orgId: "2",
       role: "user",
     });
 
@@ -187,7 +187,7 @@ describe("Manage Team Route", () => {
     renderManageOrganizationMembers();
     await screen.findByTestId("manage-organization-members-settings");
 
-    await selectOrganization({ orgIndex: 2 }); // user is admin in org 3
+    await selectOrganization({ orgIndex: 3 }); // user is admin in org 4 (All Hands AI)
 
     const memberListItems = await screen.findAllByTestId("member-item");
     const superAdminMember = memberListItems[0]; // first member is "superadmin
@@ -205,7 +205,7 @@ describe("Manage Team Route", () => {
     renderManageOrganizationMembers();
     await screen.findByTestId("manage-organization-members-settings");
 
-    await selectOrganization({ orgIndex: 2 }); // user is admin in org 3
+    await selectOrganization({ orgIndex: 3 }); // user is admin in org 4 (All Hands AI)
 
     const memberListItems = await screen.findAllByTestId("member-item");
     const adminMember = memberListItems[1]; // first member is "admin"
@@ -233,7 +233,7 @@ describe("Manage Team Route", () => {
     renderManageOrganizationMembers();
     await screen.findByTestId("manage-organization-members-settings");
 
-    await selectOrganization({ orgIndex: 0 });
+    await selectOrganization({ orgIndex: 1 }); // Acme Corp
 
     const memberListItems = await screen.findAllByTestId("member-item");
     const currentUserMember = memberListItems[0]; // First member is Alice (id: "1")
@@ -253,7 +253,7 @@ describe("Manage Team Route", () => {
     renderManageOrganizationMembers();
     await screen.findByTestId("manage-organization-members-settings");
 
-    await selectOrganization({ orgIndex: 0 });
+    await selectOrganization({ orgIndex: 1 }); // Acme Corp
 
     // Get initial member count
     const memberListItems = await screen.findAllByTestId("member-item");
@@ -278,7 +278,7 @@ describe("Manage Team Route", () => {
     await userEvent.click(removeOption);
 
     expect(removeMemberSpy).toHaveBeenCalledExactlyOnceWith({
-      orgId: "1",
+      orgId: "2",
       userId: "3",
     });
 
@@ -299,7 +299,7 @@ describe("Manage Team Route", () => {
   describe("Inviting Team Members", () => {
     it("should render an invite organization member button", async () => {
       renderManageOrganizationMembers();
-      await selectOrganization({ orgIndex: 0 });
+      await selectOrganization({ orgIndex: 1 }); // Acme Corp
 
       const inviteButton = await screen.findByRole("button", {
         name: /ORG\$INVITE_ORGANIZATION_MEMBER/i,
@@ -309,7 +309,7 @@ describe("Manage Team Route", () => {
 
     it("should render a modal when the invite button is clicked", async () => {
       renderManageOrganizationMembers();
-      await selectOrganization({ orgIndex: 0 });
+      await selectOrganization({ orgIndex: 1 }); // Acme Corp
 
       expect(screen.queryByTestId("invite-modal")).not.toBeInTheDocument();
       const inviteButton = await screen.findByRole("button", {
@@ -326,7 +326,7 @@ describe("Manage Team Route", () => {
     it("should close the modal when the close button is clicked", async () => {
       renderManageOrganizationMembers();
 
-      await selectOrganization({ orgIndex: 0 });
+      await selectOrganization({ orgIndex: 1 }); // Acme Corp
 
       const inviteButton = await screen.findByRole("button", {
         name: /ORG\$INVITE_ORGANIZATION_MEMBER/i,
@@ -357,7 +357,7 @@ describe("Manage Team Route", () => {
 
       renderManageOrganizationMembers();
 
-      await selectOrganization({ orgIndex: 0 });
+      await selectOrganization({ orgIndex: 1 }); // Acme Corp
 
       const members = await screen.findAllByTestId("member-item");
       expect(members).toHaveLength(1);

@@ -13,9 +13,7 @@ import { OrganizationUserRole } from "#/types/org";
 import { useClickOutsideElement } from "#/hooks/use-click-outside-element";
 import { cn } from "#/utils/utils";
 import { InviteOrganizationMemberModal } from "../org/invite-organization-member-modal";
-import { useSelectedOrganizationId } from "#/context/use-selected-organization";
-import { useOrganizations } from "#/hooks/query/use-organizations";
-import { SettingsDropdownInput } from "../settings/settings-dropdown-input";
+import { OrgSelector } from "../org/org-selector";
 import { I18nKey } from "#/i18n/declaration";
 import { SAAS_NAV_ITEMS, OSS_NAV_ITEMS } from "#/constants/settings-nav";
 import { useConfig } from "#/hooks/query/use-config";
@@ -55,8 +53,6 @@ interface UserContextMenuProps {
 export function UserContextMenu({ type, onClose }: UserContextMenuProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { orgId, setOrgId } = useSelectedOrganizationId();
-  const { data: organizations } = useOrganizations();
   const { mutate: logout } = useLogout();
   const { data: config } = useConfig();
   const ref = useClickOutsideElement<HTMLDivElement>(onClose);
@@ -116,28 +112,7 @@ export function UserContextMenu({ type, onClose }: UserContextMenuProps) {
 
       <div className="flex flex-col items-start gap-2">
         <div className="w-full relative">
-          <SettingsDropdownInput
-            testId="org-selector"
-            name="organization"
-            placeholder="Please select an organization"
-            selectedKey={orgId || "personal"}
-            items={[
-              { key: "personal", label: "Personal Account" },
-              ...(organizations?.map((org) => ({
-                key: org.id,
-                label: org.name,
-              })) || []),
-            ]}
-            onSelectionChange={(org) => {
-              if (org === "personal") {
-                setOrgId(null);
-              } else if (org) {
-                setOrgId(org.toString());
-              } else {
-                setOrgId(null);
-              }
-            }}
-          />
+          <OrgSelector />
         </div>
 
         {!isUser && (

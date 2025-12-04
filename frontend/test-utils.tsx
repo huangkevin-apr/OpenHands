@@ -1,5 +1,5 @@
 import React, { PropsWithChildren } from "react";
-import { RenderOptions, render, screen } from "@testing-library/react";
+import { RenderOptions, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import i18n from "i18next";
@@ -83,7 +83,7 @@ export const selectOrganization = async ({
 }: {
   orgIndex: number;
 }) => {
-  const organizationSelect = await screen.findByTestId("org-select");
+  const organizationSelect = await screen.findByTestId("org-selector");
   expect(organizationSelect).toBeInTheDocument();
 
   await userEvent.click(organizationSelect);
@@ -97,4 +97,9 @@ export const selectOrganization = async ({
   // Find the option by its text content (organization name)
   const option = await screen.findByText(targetOrg.name);
   await userEvent.click(option);
+
+  // Wait for the selection to be reflected in the input
+  await waitFor(() => {
+    expect(organizationSelect).toHaveValue(targetOrg.name);
+  });
 };

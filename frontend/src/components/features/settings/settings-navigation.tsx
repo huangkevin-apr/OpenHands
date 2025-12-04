@@ -5,10 +5,9 @@ import { Typography } from "#/ui/typography";
 import { I18nKey } from "#/i18n/declaration";
 import SettingsIcon from "#/icons/settings-gear.svg?react";
 import CloseIcon from "#/icons/close.svg?react";
-import { SettingsDropdownInput } from "./settings-dropdown-input";
 import { useSelectedOrganizationId } from "#/context/use-selected-organization";
-import { useOrganizations } from "#/hooks/query/use-organizations";
 import { useMe } from "#/hooks/query/use-me";
+import { OrgSelector } from "../org/org-selector";
 
 interface NavigationItem {
   to: string;
@@ -27,8 +26,7 @@ export function SettingsNavigation({
   onCloseMobileMenu,
   navigationItems,
 }: SettingsNavigationProps) {
-  const { orgId, setOrgId } = useSelectedOrganizationId();
-  const { data: organizations } = useOrganizations();
+  const { orgId } = useSelectedOrganizationId();
   const { data: me } = useMe();
 
   const { t } = useTranslation();
@@ -57,26 +55,8 @@ export function SettingsNavigation({
           "md:relative md:translate-x-0 md:w-64 md:p-0 md:bg-transparent",
         )}
       >
-        <div className="px-3 py-2">
-          <SettingsDropdownInput
-            testId="org-select"
-            name="organization"
-            placeholder="Please select an organization"
-            selectedKey={orgId || ""}
-            items={
-              organizations?.map((org) => ({
-                key: org.id,
-                label: org.name,
-              })) || []
-            }
-            onSelectionChange={(org) => {
-              if (org) {
-                setOrgId(org.toString());
-              } else {
-                setOrgId(null);
-              }
-            }}
-          />
+        <div className="py-2">
+          <OrgSelector />
         </div>
 
         <div className="flex items-center justify-between">

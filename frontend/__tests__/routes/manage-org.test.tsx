@@ -80,7 +80,7 @@ describe("Manage Org Route", () => {
 
     await waitFor(() => {
       const credits = screen.getByTestId("available-credits");
-      expect(credits).toHaveTextContent("1000");
+      expect(credits).toHaveTextContent("100");
     });
   });
 
@@ -91,7 +91,7 @@ describe("Manage Org Route", () => {
 
     await waitFor(() => {
       const orgName = screen.getByTestId("org-name");
-      expect(orgName).toHaveTextContent("Acme Corp");
+      expect(orgName).toHaveTextContent("Personal Workspace");
 
       const billingInfo = screen.getByTestId("billing-info");
       expect(billingInfo).toHaveTextContent("**** **** **** 1234");
@@ -165,7 +165,7 @@ describe("Manage Org Route", () => {
     renderManageOrg();
     await screen.findByTestId("manage-org-screen");
 
-    await selectOrganization({ orgIndex: 2 }); // user is admin in org 3
+    await selectOrganization({ orgIndex: 3 }); // user is admin in org 4 (All Hands AI)
 
     // Verify credits are shown
     await waitFor(() => {
@@ -197,7 +197,9 @@ describe("Manage Org Route", () => {
       await selectOrganization({ orgIndex: 0 });
 
       const orgName = screen.getByTestId("org-name");
-      await waitFor(() => expect(orgName).toHaveTextContent("Acme Corp"));
+      await waitFor(() =>
+        expect(orgName).toHaveTextContent("Personal Workspace"),
+      );
 
       expect(
         screen.queryByTestId("update-org-name-form"),
@@ -234,7 +236,7 @@ describe("Manage Org Route", () => {
       renderManageOrg();
       await screen.findByTestId("manage-org-screen");
 
-      await selectOrganization({ orgIndex: 2 }); // user is admin in org 3
+      await selectOrganization({ orgIndex: 3 }); // user is admin in org 4 (All Hands AI)
 
       const orgName = screen.getByTestId("org-name");
       const changeOrgNameButton = within(orgName).queryByRole("button", {
@@ -253,7 +255,7 @@ describe("Manage Org Route", () => {
       renderManageOrg();
       await screen.findByTestId("manage-org-screen");
 
-      await selectOrganization({ orgIndex: 2 }); // user is admin in org 3
+      await selectOrganization({ orgIndex: 3 }); // user is admin in org 4 (All Hands AI)
 
       const deleteOrgButton = screen.queryByRole("button", {
         name: /ORG\$DELETE_ORGANIZATION/i,
