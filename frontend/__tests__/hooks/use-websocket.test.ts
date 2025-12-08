@@ -1,34 +1,30 @@
 import { renderHook, waitFor } from "@testing-library/react";
-import {
-  describe,
-  it,
-  expect,
-  beforeAll,
-  afterAll,
-  afterEach,
-  vi,
-} from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ws } from "msw";
-import { setupServer } from "msw/node";
+import { server } from "#/mocks/node";
 import { useWebSocket } from "#/hooks/use-websocket";
 
 describe("useWebSocket", () => {
-  // MSW WebSocket mock setup
+  // MSW WebSocket mock setup - using global server from vitest.setup.ts
   const wsLink = ws.link("ws://acme.com/ws");
 
-  const mswServer = setupServer(
-    wsLink.addEventListener("connection", ({ client, server }) => {
+  const wsHandler = wsLink.addEventListener(
+    "connection",
+    ({ client, server: wsServer }) => {
       // Establish the connection
-      server.connect();
+      wsServer.connect();
 
       // Send a welcome message to confirm connection
       client.send("Welcome to the WebSocket!");
-    }),
+    },
   );
 
-  beforeAll(() => mswServer.listen());
-  afterEach(() => mswServer.resetHandlers());
-  afterAll(() => mswServer.close());
+  // Add WebSocket handler to the global server before each test
+  beforeEach(() => {
+    server.use(wsHandler);
+  });
+
+  // Note: afterEach cleanup is handled by vitest.setup.ts which calls server.resetHandlers()
 
   it("should establish a WebSocket connection", async () => {
     const { result } = renderHook(() => useWebSocket("ws://acme.com/ws"));
@@ -81,7 +77,7 @@ describe("useWebSocket", () => {
   it("should handle connection errors gracefully", async () => {
     // Create a mock that will simulate an error
     const errorLink = ws.link("ws://error-test.com/ws");
-    mswServer.use(
+    server.use(
       errorLink.addEventListener("connection", ({ client }) => {
         // Simulate an error by closing the connection immediately
         client.close(1006, "Connection failed");
@@ -242,7 +238,7 @@ describe("useWebSocket", () => {
 
     // Create a mock that will simulate an error
     const errorLink = ws.link("ws://error-test.com/ws");
-    mswServer.use(
+    server.use(
       errorLink.addEventListener("connection", ({ client }) => {
         // Simulate an error by closing the connection immediately
         client.close(1006, "Connection failed");
