@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react";
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { ws } from "msw";
 import { server } from "#/mocks/node";
 import { useWebSocket } from "#/hooks/use-websocket";
@@ -24,7 +24,14 @@ describe("useWebSocket", () => {
     server.use(wsHandler);
   });
 
-  // Note: afterEach cleanup is handled by vitest.setup.ts which calls server.resetHandlers()
+  // Clean up all WebSocket clients after each test to prevent cross-test contamination
+  // This is critical because wsLink.broadcast() sends to ALL clients in wsLink.clients,
+  // which can include stale connections from previous tests if not properly cleaned up
+  afterEach(() => {
+    wsLink.clients.forEach((client) => {
+      client.close();
+    });
+  });
 
   it("should establish a WebSocket connection", async () => {
     const { result } = renderHook(() => useWebSocket("ws://acme.com/ws"));
