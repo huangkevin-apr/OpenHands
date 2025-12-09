@@ -8,9 +8,16 @@ describe("useWebSocket", () => {
   // MSW WebSocket mock setup - using global server from vitest.setup.ts
   const wsLink = ws.link("ws://acme.com/ws");
 
+  // Track the current test's client for sending messages directly (avoids broadcast race conditions)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let currentClient: any;
+
   const wsHandler = wsLink.addEventListener(
     "connection",
     ({ client, server: wsServer }) => {
+      // Store reference to current client for direct messaging
+      currentClient = client;
+
       // Establish the connection
       wsServer.connect();
 
@@ -25,15 +32,9 @@ describe("useWebSocket", () => {
   });
 
   // Clean up after each test to prevent cross-test contamination
-  // The cleanup() call unmounts the hook, triggering its useEffect cleanup which closes the WebSocket
-  // We then clear the wsLink.clients set to ensure broadcast() won't reach stale connections
   afterEach(() => {
     // Unmount any rendered hooks to trigger their cleanup effects (closes WebSocket connections)
     cleanup();
-
-    // Clear the clients set to prevent broadcast() from reaching connections from previous tests
-    // Note: We don't call client.close() as that sends a CloseEvent which can cause race conditions
-    wsLink.clients.clear();
   });
 
   it("should establish a WebSocket connection", async () => {
@@ -70,8 +71,9 @@ describe("useWebSocket", () => {
       expect(result.current.lastMessage).toBe("Welcome to the WebSocket!");
     });
 
-    // Send another message from the mock server
-    wsLink.broadcast("Hello from server!");
+    // Send another message from the mock server using direct client reference
+    // (avoids broadcast which can leak to other tests' clients)
+    currentClient.send("Hello from server!");
 
     await waitFor(() => {
       expect(result.current.lastMessage).toBe("Hello from server!");
@@ -231,8 +233,9 @@ describe("useWebSocket", () => {
     // onMessage handler should have been called for the welcome message
     expect(onMessageSpy).toHaveBeenCalledOnce();
 
-    // Send another message from the mock server
-    wsLink.broadcast("Hello from server!");
+    // Send another message from the mock server using direct client reference
+    // (avoids broadcast which can leak to other tests' clients)
+    currentClient.send("Hello from server!");
 
     await waitFor(() => {
       expect(result.current.lastMessage).toBe("Hello from server!");
