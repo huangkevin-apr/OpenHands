@@ -41,4 +41,6 @@ jobs:
         run: npm run build
       - name: Run tests and collect coverage
         working-directory: ./frontend
-        run: npm run test:coverage
+        # Use --no-file-parallelism to prevent race conditions in WebSocket tests
+        # See: https://github.com/All-Hands-AI/OpenHands/issues/11944
+        run: npm run test -- --no-file-parallelism
