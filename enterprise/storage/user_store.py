@@ -62,7 +62,7 @@ class UserStore:
             )
             session.add(user)
 
-            role = RoleStore.get_role_by_name('admin')
+            role = RoleStore.get_role_by_name('owner')
 
             from storage.org_member_store import OrgMemberStore
 
@@ -70,7 +70,7 @@ class UserStore:
             org_member = OrgMember(
                 org_id=org.id,
                 user_id=user.id,
-                role_id=role.id,  # admin of your own org.
+                role_id=role.id,  # owner of your own org.
                 status='active',
                 **org_member_kwargs,
             )
@@ -142,7 +142,7 @@ class UserStore:
             )
             session.add(user)
 
-            role = RoleStore.get_role_by_name('admin')
+            role = RoleStore.get_role_by_name('owner')
 
             from storage.org_member_store import OrgMemberStore
 
@@ -152,7 +152,7 @@ class UserStore:
             org_member = OrgMember(
                 org_id=org.id,
                 user_id=user.id,
-                role_id=role.id,  # admin of your own org.
+                role_id=role.id,  # owner of your own org.
                 status='active',
                 **org_member_kwargs,
             )

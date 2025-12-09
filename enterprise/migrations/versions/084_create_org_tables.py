@@ -46,7 +46,7 @@ def upgrade() -> None:
     # 1. Create default roles
     op.execute(
         sa.text("""
-        INSERT INTO role (name, rank) VALUES ('admin', 1), ('user', 1000)
+        INSERT INTO role (name, rank) VALUES ('owner', 10), ('admin', 20), ('user', 1000)
         ON CONFLICT (name) DO NOTHING;
     """)
     )
