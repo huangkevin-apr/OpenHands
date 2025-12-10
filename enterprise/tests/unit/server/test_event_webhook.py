@@ -265,10 +265,12 @@ class TestUpdateConversationMetadata:
             'total_tokens': 1500,
         }
 
-        with patch(
-            'server.utils.conversation_callback_utils.session_maker',
-            session_maker_with_minimal_fixtures,
-        ):
+        # Import the module and patch the session_maker at the module level
+        import server.utils.conversation_callback_utils as callback_utils
+        original_session_maker = callback_utils.session_maker
+        
+        try:
+            callback_utils.session_maker = session_maker_with_minimal_fixtures
             update_conversation_metadata('mock-conversation-id', content)
 
             # Verify the conversation was updated
@@ -286,6 +288,9 @@ class TestUpdateConversationMetadata:
                 assert conversation.completion_tokens == 500
                 assert conversation.total_tokens == 1500
                 assert isinstance(conversation.last_updated_at, datetime)
+        finally:
+            # Restore the original session_maker
+            callback_utils.session_maker = original_session_maker
 
     def test_update_conversation_metadata_partial_fields(
         self, session_maker_with_minimal_fixtures
@@ -293,10 +298,12 @@ class TestUpdateConversationMetadata:
         """Test updating conversation metadata with only some fields."""
         content = {'accumulated_cost': 15.75, 'prompt_tokens': 2000}
 
-        with patch(
-            'server.utils.conversation_callback_utils.session_maker',
-            session_maker_with_minimal_fixtures,
-        ):
+        # Import the module and patch the session_maker at the module level
+        import server.utils.conversation_callback_utils as callback_utils
+        original_session_maker = callback_utils.session_maker
+        
+        try:
+            callback_utils.session_maker = session_maker_with_minimal_fixtures
             update_conversation_metadata('mock-conversation-id', content)
 
             # Verify only specified fields were updated, others remain unchanged
@@ -314,6 +321,9 @@ class TestUpdateConversationMetadata:
                 # These should remain as original values from fixtures
                 assert conversation.completion_tokens == 250
                 assert conversation.total_tokens == 750
+        finally:
+            # Restore the original session_maker
+            callback_utils.session_maker = original_session_maker
 
     def test_update_conversation_metadata_empty_content(
         self, session_maker_with_minimal_fixtures
@@ -321,10 +331,12 @@ class TestUpdateConversationMetadata:
         """Test updating conversation metadata with empty content."""
         content: dict[str, float] = {}
 
-        with patch(
-            'server.utils.conversation_callback_utils.session_maker',
-            session_maker_with_minimal_fixtures,
-        ):
+        # Import the module and patch the session_maker at the module level
+        import server.utils.conversation_callback_utils as callback_utils
+        original_session_maker = callback_utils.session_maker
+        
+        try:
+            callback_utils.session_maker = session_maker_with_minimal_fixtures
             update_conversation_metadata('mock-conversation-id', content)
 
             # Verify only last_updated_at was changed
@@ -343,6 +355,9 @@ class TestUpdateConversationMetadata:
                 assert conversation.completion_tokens == 250
                 assert conversation.total_tokens == 750
                 assert isinstance(conversation.last_updated_at, datetime)
+        finally:
+            # Restore the original session_maker
+            callback_utils.session_maker = original_session_maker
 
 
 class TestOnDelete:
@@ -373,24 +388,30 @@ class TestOnWrite:
         content = {'accumulated_cost': 20.0}
         mock_request.json.return_value = content
 
-        with patch(
-            'server.routes.event_webhook.session_maker',
-            session_maker_with_minimal_fixtures,
-        ), patch(
-            'server.utils.conversation_callback_utils.session_maker',
-            session_maker_with_minimal_fixtures,
-        ), patch(
-            'server.routes.event_webhook._get_session_api_key'
-        ) as mock_get_api_key:
-            mock_get_api_key.return_value = 'correct-api-key'
+        # Import the module and patch the session_maker at the module level
+        import server.utils.conversation_callback_utils as callback_utils
+        original_session_maker = callback_utils.session_maker
+        
+        try:
+            with patch(
+                'server.routes.event_webhook.session_maker',
+                session_maker_with_minimal_fixtures,
+            ), patch(
+                'server.routes.event_webhook._get_session_api_key'
+            ) as mock_get_api_key:
+                mock_get_api_key.return_value = 'correct-api-key'
+                callback_utils.session_maker = session_maker_with_minimal_fixtures
 
-            result = await on_write(
-                'sessions/mock-conversation-id/metadata.json',
-                mock_request,
-                'correct-api-key',
-            )
+                result = await on_write(
+                    'sessions/mock-conversation-id/metadata.json',
+                    mock_request,
+                    'correct-api-key',
+                )
 
-            assert result.status_code == status.HTTP_200_OK
+                assert result.status_code == status.HTTP_200_OK
+        finally:
+            # Restore the original session_maker
+            callback_utils.session_maker = original_session_maker
 
     @pytest.mark.asyncio
     async def test_on_write_events_success(
@@ -598,31 +619,37 @@ class TestProcessBatchOperationsBackground:
             )
         ]
 
-        with patch(
-            'server.routes.event_webhook.session_maker',
-            session_maker_with_minimal_fixtures,
-        ), patch(
-            'server.routes.event_webhook._get_session_api_key'
-        ) as mock_get_api_key, patch(
-            'server.utils.conversation_callback_utils.session_maker',
-            session_maker_with_minimal_fixtures,
-        ):
-            mock_get_api_key.return_value = 'correct-api-key'
+        # Import the module and patch the session_maker at the module level
+        import server.utils.conversation_callback_utils as callback_utils
+        original_session_maker = callback_utils.session_maker
+        
+        try:
+            with patch(
+                'server.routes.event_webhook.session_maker',
+                session_maker_with_minimal_fixtures,
+            ), patch(
+                'server.routes.event_webhook._get_session_api_key'
+            ) as mock_get_api_key:
+                mock_get_api_key.return_value = 'correct-api-key'
+                callback_utils.session_maker = session_maker_with_minimal_fixtures
 
-            # Should not raise any exceptions
-            await _process_batch_operations_background(batch_ops, 'correct-api-key')
+                # Should not raise any exceptions
+                await _process_batch_operations_background(batch_ops, 'correct-api-key')
 
-            # Verify the conversation metadata was updated
-            with session_maker_with_minimal_fixtures() as session:
-                conversation = (
-                    session.query(StoredConversationMetadata)
-                    .filter(
-                        StoredConversationMetadata.conversation_id
-                        == 'mock-conversation-id'
+                # Verify the conversation metadata was updated
+                with session_maker_with_minimal_fixtures() as session:
+                    conversation = (
+                        session.query(StoredConversationMetadata)
+                        .filter(
+                            StoredConversationMetadata.conversation_id
+                            == 'mock-conversation-id'
+                        )
+                        .first()
                     )
-                    .first()
-                )
-                assert conversation.accumulated_cost == 15.0
+                    assert conversation.accumulated_cost == 15.0
+        finally:
+            # Restore the original session_maker
+            callback_utils.session_maker = original_session_maker
 
     @pytest.mark.asyncio
     async def test_process_batch_operations_events_success(
@@ -673,20 +700,26 @@ class TestProcessBatchOperationsBackground:
             ),
         ]
 
-        with patch(
-            'server.routes.event_webhook.session_maker',
-            session_maker_with_minimal_fixtures,
-        ), patch(
-            'server.routes.event_webhook._get_session_api_key'
-        ) as mock_get_api_key, patch(
-            'server.utils.conversation_callback_utils.session_maker',
-            session_maker_with_minimal_fixtures,
-        ):
-            # First call succeeds, second fails
-            mock_get_api_key.side_effect = ['correct-api-key', 'wrong-api-key']
+        # Import the module and patch the session_maker at the module level
+        import server.utils.conversation_callback_utils as callback_utils
+        original_session_maker = callback_utils.session_maker
+        
+        try:
+            with patch(
+                'server.routes.event_webhook.session_maker',
+                session_maker_with_minimal_fixtures,
+            ), patch(
+                'server.routes.event_webhook._get_session_api_key'
+            ) as mock_get_api_key:
+                # First call succeeds, second fails
+                mock_get_api_key.side_effect = ['correct-api-key', 'wrong-api-key']
+                callback_utils.session_maker = session_maker_with_minimal_fixtures
 
-            # Should not raise exceptions, just log errors
-            await _process_batch_operations_background(batch_ops, 'correct-api-key')
+                # Should not raise exceptions, just log errors
+                await _process_batch_operations_background(batch_ops, 'correct-api-key')
+        finally:
+            # Restore the original session_maker
+            callback_utils.session_maker = original_session_maker
 
     @pytest.mark.asyncio
     async def test_process_batch_operations_invalid_method_skipped(
