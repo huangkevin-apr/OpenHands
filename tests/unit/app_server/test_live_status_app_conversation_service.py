@@ -6,7 +6,10 @@ from uuid import UUID, uuid4
 import pytest
 
 from openhands.agent_server.models import SendMessageRequest, StartConversationRequest
-from openhands.app_server.app_conversation.app_conversation_models import AgentType
+from openhands.app_server.app_conversation.app_conversation_models import (
+    AgentType,
+    SandboxGroupingStrategy,
+)
 from openhands.app_server.app_conversation.live_status_app_conversation_service import (
     LiveStatusAppConversationService,
 )
@@ -60,6 +63,8 @@ class TestLiveStatusAppConversationService:
             access_token_hard_timeout=None,
             app_mode='test',
             keycloak_auth_cookie=None,
+            tavily_api_key=None,
+            sandbox_grouping_strategy=SandboxGroupingStrategy.ADD_TO_ANY,  # Use ADD_TO_ANY for tests to maintain old behavior
         )
 
         # Mock user info

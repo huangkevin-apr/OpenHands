@@ -29,6 +29,7 @@ from openhands.app_server.app_conversation.app_conversation_models import (
     AppConversationStartRequest,
     AppConversationStartTask,
     AppConversationStartTaskStatus,
+    SandboxGroupingStrategy,
 )
 from openhands.app_server.app_conversation.app_conversation_service import (
     AppConversationService,
@@ -107,6 +108,9 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
     app_mode: str | None = None
     keycloak_auth_cookie: str | None = None
     tavily_api_key: str | None = None
+    sandbox_grouping_strategy: SandboxGroupingStrategy = (
+        SandboxGroupingStrategy.NO_GROUPING
+    )
 
     async def search_app_conversations(
         self,
@@ -444,7 +448,7 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
         return result
 
     async def _find_running_sandbox_for_user(self) -> SandboxInfo | None:
-        """Find a running sandbox for the current user.
+        """Find a running sandbox for the current user based on the grouping strategy.
 
         Returns:
             SandboxInfo if a running sandbox is found, None otherwise.
@@ -452,7 +456,12 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
         try:
             user_id = await self.user_context.get_user_id()
 
-            # Search through all sandboxes to find running ones for this user
+            # If no grouping, return None to force creation of a new sandbox
+            if self.sandbox_grouping_strategy == SandboxGroupingStrategy.NO_GROUPING:
+                return None
+
+            # Collect all running sandboxes for this user
+            running_sandboxes = []
             page_id = None
             while True:
                 page = await self.sandbox_service.search_sandboxes(
@@ -464,18 +473,101 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
                         sandbox.status == SandboxStatus.RUNNING
                         and sandbox.created_by_user_id == user_id
                     ):
-                        return sandbox
+                        running_sandboxes.append(sandbox)
 
                 if page.next_page_id is None:
                     break
                 page_id = page.next_page_id
 
-            return None
+            if not running_sandboxes:
+                return None
+
+            # Apply the grouping strategy
+            return await self._select_sandbox_by_strategy(running_sandboxes)
+
         except Exception as e:
             _logger.warning(
                 f'Error finding running sandbox for user: {e}', exc_info=True
             )
             return None
+
+    async def _select_sandbox_by_strategy(
+        self, running_sandboxes: list[SandboxInfo]
+    ) -> SandboxInfo:
+        """Select a sandbox from the list based on the configured grouping strategy.
+
+        Args:
+            running_sandboxes: List of running sandboxes for the user
+
+        Returns:
+            Selected sandbox based on the strategy
+        """
+        if self.sandbox_grouping_strategy == SandboxGroupingStrategy.ADD_TO_ANY:
+            # Return the first available sandbox
+            return running_sandboxes[0]
+
+        elif self.sandbox_grouping_strategy == SandboxGroupingStrategy.GROUP_BY_NEWEST:
+            # Return the most recently created sandbox
+            return max(running_sandboxes, key=lambda s: s.created_at)
+
+        elif (
+            self.sandbox_grouping_strategy
+            == SandboxGroupingStrategy.LEAST_RECENTLY_USED
+        ):
+            # Return the least recently created sandbox (oldest)
+            return min(running_sandboxes, key=lambda s: s.created_at)
+
+        elif (
+            self.sandbox_grouping_strategy
+            == SandboxGroupingStrategy.FEWEST_CONVERSATIONS
+        ):
+            # Count conversations per sandbox and return the one with fewest
+            sandbox_conversation_counts = (
+                await self._get_conversation_counts_by_sandbox(
+                    [s.id for s in running_sandboxes]
+                )
+            )
+            return min(
+                running_sandboxes,
+                key=lambda s: sandbox_conversation_counts.get(s.id, 0),
+            )
+
+        else:
+            # Default fallback - return first sandbox
+            return running_sandboxes[0]
+
+    async def _get_conversation_counts_by_sandbox(
+        self, sandbox_ids: list[str]
+    ) -> dict[str, int]:
+        """Get the count of conversations for each sandbox.
+
+        Args:
+            sandbox_ids: List of sandbox IDs to count conversations for
+
+        Returns:
+            Dictionary mapping sandbox_id to conversation count
+        """
+        try:
+            # Get all conversations for the current user
+            page = (
+                await self.app_conversation_info_service.search_app_conversation_info(
+                    limit=10000  # Large limit to get all conversations
+                )
+            )
+
+            # Count conversations per sandbox
+            counts: dict[str, int] = defaultdict(int)
+            for conversation in page.items:
+                if conversation and conversation.sandbox_id in sandbox_ids:
+                    counts[conversation.sandbox_id] += 1
+
+            return dict(counts)
+        except Exception as e:
+            _logger.warning(
+                f'Error counting conversations by sandbox: {e}', exc_info=True
+            )
+            # Return empty counts on error - will default to first sandbox
+            return {}
 
     async def _wait_for_sandbox_start(
         self, task: AppConversationStartTask
@@ -1046,6 +1138,10 @@ class LiveStatusAppConversationServiceInjector(AppConversationServiceInjector):
         default=None,
         description='The Tavily Search API key to add to MCP integration',
     )
+    sandbox_grouping_strategy: SandboxGroupingStrategy = Field(
+        default=SandboxGroupingStrategy.NO_GROUPING,
+        description='Strategy for grouping conversations within sandboxes',
+    )
 
     async def inject(
         self, state: InjectorState, request: Request | None = None
@@ -1129,4 +1225,5 @@ class LiveStatusAppConversationServiceInjector(AppConversationServiceInjector):
                 app_mode=app_mode,
                 keycloak_auth_cookie=keycloak_auth_cookie,
                 tavily_api_key=tavily_api_key,
+                sandbox_grouping_strategy=self.sandbox_grouping_strategy,
             )
