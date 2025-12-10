@@ -2,7 +2,6 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from openhands.core.config.openhands_config import OpenHandsConfig
-    from storage.api_key_store import ApiKeyStore
 
 from openhands.core.config.mcp_config import (
     MCPSHTTPServerConfig,
