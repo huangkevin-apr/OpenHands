@@ -16,8 +16,8 @@ from openhands.events.action.message import MessageAction, SystemMessageAction
 from openhands.events.event import EventSource
 from openhands.events.observation.agent import (
     RecallObservation,
-    RecallType,
 )
+from openhands.events.recall_type import RecallType
 from openhands.events.serialization.observation import observation_from_dict
 from openhands.events.stream import EventStream
 from openhands.llm import LLM
