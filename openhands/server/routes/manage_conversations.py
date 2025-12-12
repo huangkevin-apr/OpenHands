@@ -569,7 +569,9 @@ async def _finalize_delete_and_close_connections(
     httpx_client: httpx.AsyncClient,
 ):
     try:
-        num_conversations_in_sandbox = await _get_num_conversations_in_sandbox(sandbox_service, sandbox_id, httpx_client)
+        num_conversations_in_sandbox = await _get_num_conversations_in_sandbox(
+            sandbox_service, sandbox_id, httpx_client
+        )
         if num_conversations_in_sandbox == 0:
             await sandbox_service.delete_sandbox(sandbox_id)
         await db_session.commit()
@@ -595,7 +597,7 @@ async def _get_num_conversations_in_sandbox(
             u for u in sandbox.exposed_urls if u.name == AGENT_SERVER
         )
         response = await httpx_client.get(
-            f"{agent_server_url.url}/api/conversations/count",
+            f'{agent_server_url.url}/api/conversations/count',
             headers={'X-Session-API-Key': sandbox.session_api_key},
         )
         result = int(response.content)
