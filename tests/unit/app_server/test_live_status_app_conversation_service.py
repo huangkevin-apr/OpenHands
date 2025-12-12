@@ -804,13 +804,13 @@ class TestLiveStatusAppConversationService:
         # Act
         result = await self.service._build_start_conversation_request_for_user(
             sandbox=self.mock_sandbox,
+            conversation_id=uuid4(),
             initial_message=None,
             system_message_suffix='Test suffix',
             git_provider=ProviderType.GITHUB,
             working_dir='/test/dir',
             agent_type=AgentType.DEFAULT,
             llm_model='gpt-4',
-            conversation_id=None,
             remote_workspace=None,
             selected_repository='test/repo',
         )

@@ -226,11 +226,19 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
             )
             assert sandbox_spec is not None
 
+            # Set up conversation id
+            conversation_id = request.conversation_id or uuid4()
+
+            # Setup working dir based on grouping
+            working_dir = sandbox_spec.working_dir
+            if self.sandbox_grouping_strategy != SandboxGroupingStrategy.NO_GROUPING:
+                working_dir = f"{working_dir}/{conversation_id}"
+
             # Run setup scripts
             remote_workspace = AsyncRemoteWorkspace(
                 host=agent_server_url,
                 api_key=sandbox.session_api_key,
-                working_dir=sandbox_spec.working_dir,
+                working_dir=working_dir,
             )
             async for updated_task in self.run_setup_scripts(
                 task, sandbox, remote_workspace
@@ -241,13 +249,13 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
             start_conversation_request = (
                 await self._build_start_conversation_request_for_user(
                     sandbox,
+                    conversation_id,
                     request.initial_message,
                     request.system_message_suffix,
                     request.git_provider,
-                    sandbox_spec.working_dir,
+                    working_dir,
                     request.agent_type,
                     request.llm_model,
-                    request.conversation_id,
                     remote_workspace=remote_workspace,
                     selected_repository=request.selected_repository,
                 )
@@ -829,7 +837,7 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
     async def _finalize_conversation_request(
         self,
         agent: Agent,
-        conversation_id: UUID | None,
+        conversation_id: UUID,
         user: UserInfo,
         workspace: LocalWorkspace,
         initial_message: SendMessageRequest | None,
@@ -856,9 +864,6 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
         Returns:
             Complete StartConversationRequest ready for use
         """
-        # Generate conversation ID if not provided
-        conversation_id = conversation_id or uuid4()
-
         # Apply experiment variants
         agent = ExperimentManagerImpl.run_agent_variant_tests__v1(
             user.id, conversation_id, agent
@@ -889,13 +894,13 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
     async def _build_start_conversation_request_for_user(
         self,
         sandbox: SandboxInfo,
+        conversation_id: UUID,
         initial_message: SendMessageRequest | None,
         system_message_suffix: str | None,
         git_provider: ProviderType | None,
         working_dir: str,
         agent_type: AgentType = AgentType.DEFAULT,
         llm_model: str | None = None,
-        conversation_id: UUID | None = None,
         remote_workspace: AsyncRemoteWorkspace | None = None,
         selected_repository: str | None = None,
     ) -> StartConversationRequest:
