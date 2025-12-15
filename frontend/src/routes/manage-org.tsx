@@ -15,9 +15,8 @@ import { useMe } from "#/hooks/query/use-me";
 import { rolePermissions } from "#/utils/org/permissions";
 import {
   getSelectedOrgFromQueryClient,
-  getMeFromQueryClient,
+  fetchAndCacheMe,
 } from "#/utils/query-client-getters";
-import { queryClient } from "#/query-client-config";
 import { I18nKey } from "#/i18n/declaration";
 import { amountIsValid } from "#/utils/amount-is-valid";
 
@@ -285,12 +284,7 @@ function AddCreditsModal({ onClose }: AddCreditsModalProps) {
 
 export const clientLoader = async () => {
   const selectedOrgId = getSelectedOrgFromQueryClient();
-  let me = getMeFromQueryClient(selectedOrgId);
-
-  if (!me && selectedOrgId) {
-    me = await organizationService.getMe({ orgId: selectedOrgId });
-    queryClient.setQueryData(["organizations", selectedOrgId, "me"], me);
-  }
+  const me = selectedOrgId ? await fetchAndCacheMe(selectedOrgId) : null;
 
   if (!me || me.role === "user") {
     // if user is USER role, redirect to user settings

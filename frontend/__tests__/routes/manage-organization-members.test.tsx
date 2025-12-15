@@ -3,7 +3,7 @@ import { render, screen, within, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
-import { selectOrganization } from "test-utils";
+import { selectOrganization, createGetMeResponse } from "test-utils";
 import { organizationService } from "#/api/organization-service/organization-service.api";
 import ManageOrganizationMembers from "#/routes/manage-organization-members";
 import SettingsScreen, {
@@ -15,6 +15,7 @@ import {
   resetOrgsAndMembersMockData,
 } from "#/mocks/org-handlers";
 import OptionService from "#/api/option-service/option-service.api";
+import { OrganizationMember } from "#/types/org";
 
 function ManageOrganizationMembersWithPortalRoot() {
   return (
@@ -60,12 +61,18 @@ describe("Manage Organization Members Route", () => {
     queryClient = new QueryClient();
 
     // Set default mock for user (admin role has invite permission)
-    getMeSpy.mockResolvedValue({
-      id: "1",
-      email: "test@example.com",
-      role: "admin",
-      status: "active",
-    });
+    // orgIndex 0 maps to orgId "1"
+    getMeSpy.mockResolvedValue(
+      createGetMeResponse(
+        {
+          id: "1",
+          email: "test@example.com",
+          role: "admin",
+          status: "active",
+        },
+        "1",
+      ),
+    );
   });
 
   afterEach(() => {
@@ -145,7 +152,9 @@ describe("Manage Organization Members Route", () => {
     },
     orgIndex: number,
   ) => {
-    getMeSpy.mockResolvedValue(userData);
+    // Map orgIndex to orgId: 0 -> "1", 1 -> "2", 2 -> "3"
+    const orgId = String(orgIndex + 1);
+    getMeSpy.mockResolvedValue(createGetMeResponse(userData, orgId));
     renderManageOrganizationMembers();
     await screen.findByTestId("manage-organization-members-settings");
     await selectOrganization({ orgIndex });
@@ -478,12 +487,17 @@ describe("Manage Organization Members Route", () => {
     ])(
       "should show invite button when user has canInviteUsers permission ($roleName role)",
       async ({ role }) => {
-        getMeSpy.mockResolvedValue({
-          id: "1",
-          email: "test@example.com",
-          role,
-          status: "active",
-        });
+        getMeSpy.mockResolvedValue(
+          createGetMeResponse(
+            {
+              id: "1",
+              email: "test@example.com",
+              role,
+              status: "active",
+            },
+            "1",
+          ),
+        );
 
         await setupTestWithOrg(0);
 
@@ -503,7 +517,7 @@ describe("Manage Organization Members Route", () => {
       };
 
       // Set mock and remove cached query before rendering
-      getMeSpy.mockResolvedValue(userData);
+      getMeSpy.mockResolvedValue(createGetMeResponse(userData, "1"));
       // Remove any cached "me" queries so fresh data is fetched
       queryClient.removeQueries({ queryKey: ["organizations"] });
 

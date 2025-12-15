@@ -3,6 +3,7 @@ import {
   Organization,
   OrganizationMember,
   OrganizationUserRole,
+  GetMeResponse,
 } from "#/types/org";
 
 const MOCK_ME: Omit<OrganizationMember, "role"> = {
@@ -134,26 +135,28 @@ export const ORG_HANDLERS = [
       );
     }
 
-    let role: OrganizationUserRole = "user";
-    switch (orgId) {
-      case "1":
-        role = "owner";
-        break;
-      case "2":
-        role = "user";
-        break;
-      case "3":
-        role = "admin";
-        break;
-      default:
-        role = "user";
-    }
-
-    const me: OrganizationMember = {
-      ...MOCK_ME,
-      role,
+    // Define user's role in each organization
+    const orgRoles: Record<string, OrganizationUserRole> = {
+      "1": "owner",
+      "2": "user",
+      "3": "admin",
     };
-    return HttpResponse.json(me);
+
+    // Build the orgs array with all organizations the user belongs to
+    const userOrgs = INITIAL_MOCK_ORGS.map((org) => ({
+      orgId: org.id,
+      orgName: org.name,
+      role: orgRoles[org.id] || "user",
+      isCurrent: org.id === orgId,
+    }));
+
+    const response: GetMeResponse = {
+      userId: MOCK_ME.id,
+      email: MOCK_ME.email,
+      orgs: userOrgs,
+    };
+
+    return HttpResponse.json(response);
   }),
 
   http.get("/api/organizations/:orgId/members", ({ params }) => {

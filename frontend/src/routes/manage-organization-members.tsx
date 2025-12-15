@@ -12,22 +12,15 @@ import { useRemoveMember } from "#/hooks/mutation/use-remove-member";
 import { useMe } from "#/hooks/query/use-me";
 import { BrandButton } from "#/components/features/settings/brand-button";
 import { rolePermissions } from "#/utils/org/permissions";
-import { organizationService } from "#/api/organization-service/organization-service.api";
-import { queryClient } from "#/query-client-config";
 import {
   getSelectedOrgFromQueryClient,
-  getMeFromQueryClient,
+  fetchAndCacheMe,
 } from "#/utils/query-client-getters";
 import { I18nKey } from "#/i18n/declaration";
 
 export const clientLoader = async () => {
   const selectedOrgId = getSelectedOrgFromQueryClient();
-  let me = getMeFromQueryClient(selectedOrgId);
-
-  if (!me && selectedOrgId) {
-    me = await organizationService.getMe({ orgId: selectedOrgId });
-    queryClient.setQueryData(["organizations", selectedOrgId, "me"], me);
-  }
+  const me = selectedOrgId ? await fetchAndCacheMe(selectedOrgId) : null;
 
   if (!me || me.role === "user") {
     // if user is USER role, redirect to user settings

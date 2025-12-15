@@ -3,13 +3,14 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { createRoutesStub } from "react-router";
-import { selectOrganization } from "test-utils";
+import { selectOrganization, createGetMeResponse } from "test-utils";
 import ManageOrg from "#/routes/manage-org";
 import { organizationService } from "#/api/organization-service/organization-service.api";
 import SettingsScreen, { clientLoader } from "#/routes/settings";
 import { resetOrgMockData } from "#/mocks/org-handlers";
 import OptionService from "#/api/option-service/option-service.api";
 import BillingService from "#/api/billing-service/billing-service.api";
+import { OrganizationMember } from "#/types/org";
 
 function ManageOrgWithPortalRoot() {
   return (
@@ -78,13 +79,16 @@ describe("Manage Org Route", () => {
   };
 
   // Helper function to set up user mock
-  const setupUserMock = (userData: {
-    id: string;
-    email: string;
-    role: "owner" | "admin" | "user";
-    status: "active" | "invited";
-  }) => {
-    getMeSpy.mockResolvedValue(userData);
+  const setupUserMock = (
+    userData: {
+      id: string;
+      email: string;
+      role: "owner" | "admin" | "user";
+      status: "active" | "invited";
+    },
+    orgId: string = "1",
+  ) => {
+    getMeSpy.mockResolvedValue(createGetMeResponse(userData, orgId));
   };
 
   beforeEach(() => {
@@ -95,7 +99,8 @@ describe("Manage Org Route", () => {
     });
 
     // Set default mock for user (owner role has all permissions)
-    setupUserMock(TEST_USERS.OWNER);
+    // Default to orgId "1" for most tests
+    setupUserMock(TEST_USERS.OWNER, "1");
   });
 
   afterEach(() => {
@@ -574,7 +579,7 @@ describe("Manage Org Route", () => {
 
     it("should NOT allow roles other than owners to change org name", async () => {
       // Set admin role before rendering
-      setupUserMock(TEST_USERS.ADMIN);
+      setupUserMock(TEST_USERS.ADMIN, "3");
 
       renderManageOrg();
       await screen.findByTestId("manage-org-screen");
@@ -589,7 +594,7 @@ describe("Manage Org Route", () => {
     });
 
     it("should NOT allow roles other than owners to delete an organization", async () => {
-      setupUserMock(TEST_USERS.ADMIN);
+      setupUserMock(TEST_USERS.ADMIN, "3");
 
       const getConfigSpy = vi.spyOn(OptionService, "getConfig");
       // @ts-expect-error - only return the properties we need for this test
@@ -646,7 +651,7 @@ describe("Manage Org Route", () => {
 
   describe("Role-based delete organization permission behavior", () => {
     it("should show delete organization button when user has canDeleteOrganization permission (Owner role)", async () => {
-      setupUserMock(TEST_USERS.OWNER);
+      setupUserMock(TEST_USERS.OWNER, "1");
 
       renderManageOrg();
       await screen.findByTestId("manage-org-screen");
@@ -667,12 +672,15 @@ describe("Manage Org Route", () => {
     ])(
       "should not show delete organization button when user lacks canDeleteOrganization permission ($roleName role)",
       async ({ role }) => {
-        setupUserMock({
-          id: "1",
-          email: "test@example.com",
-          role,
-          status: "active",
-        });
+        setupUserMock(
+          {
+            id: "1",
+            email: "test@example.com",
+            role,
+            status: "active",
+          },
+          "1",
+        );
 
         renderManageOrg();
         await screen.findByTestId("manage-org-screen");
@@ -688,7 +696,7 @@ describe("Manage Org Route", () => {
     );
 
     it("should open delete confirmation modal when delete button is clicked (with permission)", async () => {
-      setupUserMock(TEST_USERS.OWNER);
+      setupUserMock(TEST_USERS.OWNER, "1");
 
       renderManageOrg();
       await screen.findByTestId("manage-org-screen");

@@ -7,6 +7,7 @@ import { expect, vi } from "vitest";
 import { AxiosError } from "axios";
 import userEvent from "@testing-library/user-event";
 import { INITIAL_MOCK_ORGS } from "#/mocks/org-handlers";
+import { GetMeResponse, OrganizationMember } from "#/types/org";
 
 // Mock useParams before importing components
 vi.mock("react-router", async () => {
@@ -97,4 +98,38 @@ export const selectOrganization = async ({
   // Find the option by its text content (organization name)
   const option = await screen.findByText(targetOrg.name);
   await userEvent.click(option);
+};
+
+/**
+ * Helper function to convert OrganizationMember to GetMeResponse for testing.
+ * This creates a GetMeResponse structure that matches the new API format.
+ *
+ * @param userData - The user data (OrganizationMember format)
+ * @param orgId - The organization ID that should be marked as current
+ * @returns GetMeResponse with all orgs, marking the specified orgId as current
+ */
+export const createGetMeResponse = (
+  userData: OrganizationMember,
+  orgId: string,
+): GetMeResponse => {
+  // Map orgIndex to orgId: 0 -> "1", 1 -> "2", 2 -> "3"
+  const orgRoles: Record<string, OrganizationMember["role"]> = {
+    "1": "owner",
+    "2": "user",
+    "3": "admin",
+  };
+
+  // Build orgs array with all organizations, marking the requested one as current
+  const orgs = INITIAL_MOCK_ORGS.map((org) => ({
+    orgId: org.id,
+    orgName: org.name,
+    role: org.id === orgId ? userData.role : (orgRoles[org.id] || "user"),
+    isCurrent: org.id === orgId,
+  }));
+
+  return {
+    userId: userData.id,
+    email: userData.email,
+    orgs,
+  };
 };

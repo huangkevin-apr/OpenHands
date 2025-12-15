@@ -2,12 +2,13 @@ import {
   Organization,
   OrganizationMember,
   OrganizationUserRole,
+  GetMeResponse,
 } from "#/types/org";
 import { openHands } from "../open-hands-axios";
 
 export const organizationService = {
   getMe: async ({ orgId }: { orgId: string }) => {
-    const { data } = await openHands.get<OrganizationMember>(
+    const { data } = await openHands.get<GetMeResponse>(
       `/api/organizations/${orgId}/me`,
     );
 
