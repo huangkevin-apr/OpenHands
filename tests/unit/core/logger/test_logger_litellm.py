@@ -177,6 +177,7 @@ def test_litellm_json_output_when_enabled():
     verbose_logger.addHandler(handler)
     verbose_logger.setLevel(logging.INFO)
     verbose_logger.propagate = False
+    verbose_logger.disabled = False
 
     old_stderr = sys.stderr
     sys.stderr = io.StringIO()
@@ -184,6 +185,7 @@ def test_litellm_json_output_when_enabled():
     try:
         test_message = 'LiteLLM completion() model= test-model; provider = test'
         verbose_logger.info(test_message)
+        handler.flush()
 
         stdout_output = capture_stream.getvalue()
         stderr_output = sys.stderr.getvalue()
@@ -193,7 +195,13 @@ def test_litellm_json_output_when_enabled():
     assert stderr_output == '', (
         f'No output should go to stderr, but got: {stderr_output!r}'
     )
-    assert stdout_output, 'Output should be captured'
+    assert stdout_output, (
+        f'Output should be captured. '
+        f'Logger handlers: {verbose_logger.handlers}, '
+        f'Logger level: {verbose_logger.level}, '
+        f'Logger effective level: {verbose_logger.getEffectiveLevel()}, '
+        f'Logger disabled: {verbose_logger.disabled}'
+    )
 
     try:
         log_entry = json.loads(stdout_output.strip())
