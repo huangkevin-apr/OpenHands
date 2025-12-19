@@ -73,6 +73,7 @@ class SaasSettingsStore(SettingsStore):
             logger.error(f'User not found for ID {self.user_id}')
             return None
 
+
         org_id = user.current_org_id
         org_member: OrgMember = None
         for om in user.org_members:
