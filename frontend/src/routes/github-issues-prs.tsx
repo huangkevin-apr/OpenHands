@@ -207,7 +207,7 @@ function GitHubIssuesPRsPage() {
       // Build the initial message based on item type
       let initialMessage: string;
       if (item.item_type === "issue") {
-        initialMessage = `Please help me resolve issue #${item.number} in the ${item.repo} repository. 
+        initialMessage = `Please help me resolve issue #${item.number} in the ${item.repo} repository.
 
 First, understand the issue context by reading the issue description and any comments. Then, work on resolving the issue. If you successfully resolve it, please open a draft PR with the fix.
 
