@@ -3,15 +3,17 @@ from datetime import datetime, timezone
 from typing import Annotated, Literal, Optional
 from urllib.parse import quote
 
+import httpx
 import posthog
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
-from pydantic import SecretStr
+from pydantic import BaseModel, SecretStr
 from server.auth.auth_utils import user_verifier
 from server.auth.constants import (
     KEYCLOAK_CLIENT_ID,
     KEYCLOAK_REALM_NAME,
     KEYCLOAK_SERVER_URL_EXT,
+    RECAPTCHA_SECRET_KEY,
     ROLE_CHECK_ENABLED,
 )
 from server.auth.domain_blocker import domain_blocker
@@ -32,6 +34,7 @@ from openhands.server.services.conversation_service import create_provider_token
 from openhands.server.shared import config
 from openhands.server.user_auth import get_access_token
 from openhands.server.user_auth.user_auth import get_user_auth
+from openhands.utils.http_session import httpx_verify_option
 
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
@@ -457,3 +460,72 @@ async def refresh_tokens(
         )
 
     return TokenResponse(token=token.get_secret_value())
+
+
+class RecaptchaVerifyRequest(BaseModel):
+    token: str
+
+
+@api_router.post('/verify-recaptcha')
+async def verify_recaptcha(request_data: RecaptchaVerifyRequest):
+    """
+    Verify a reCAPTCHA token with Google's reCAPTCHA API.
+    This endpoint is public and does not require authentication.
+    """
+    if not RECAPTCHA_SECRET_KEY:
+        logger.warning('reCAPTCHA secret key not configured')
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={'success': False, 'error': 'reCAPTCHA not configured'},
+        )
+
+    if not request_data.token:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={'success': False, 'error': 'Token is required'},
+        )
+
+    try:
+        async with httpx.AsyncClient(verify=httpx_verify_option()) as client:
+            response = await client.post(
+                'https://www.google.com/recaptcha/api/siteverify',
+                data={
+                    'secret': RECAPTCHA_SECRET_KEY,
+                    'response': request_data.token,
+                },
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            if result.get('success', False):
+                logger.debug('reCAPTCHA verification successful')
+                return JSONResponse(
+                    status_code=status.HTTP_200_OK,
+                    content={'success': True},
+                )
+            else:
+                error_codes = result.get('error-codes', [])
+                logger.warning(
+                    f'reCAPTCHA verification failed: {error_codes}',
+                    extra={'error_codes': error_codes},
+                )
+                return JSONResponse(
+                    status_code=status.HTTP_200_OK,
+                    content={
+                        'success': False,
+                        'error_codes': error_codes,
+                    },
+                )
+    except httpx.HTTPError as e:
+        logger.error(f'Error calling reCAPTCHA API: {str(e)}')
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={'success': False, 'error': 'Failed to verify reCAPTCHA'},
+        )
+    except Exception as e:
+        logger.error(f'Unexpected error during reCAPTCHA verification: {str(e)}')
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={'success': False, 'error': 'Internal server error'},
+        )

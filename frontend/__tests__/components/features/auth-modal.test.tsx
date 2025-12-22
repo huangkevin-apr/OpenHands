@@ -1,7 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { it, describe, expect, vi, beforeEach, afterEach } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { AuthModal } from "#/components/features/waitlist/auth-modal";
+import AuthService from "#/api/auth-service/auth-service.api";
+import { renderWithProviders } from "test-utils";
 
 // Mock the useAuthUrl hook
 vi.mock("#/hooks/use-auth-url", () => ({
@@ -15,9 +17,30 @@ vi.mock("#/hooks/use-tracking", () => ({
   }),
 }));
 
+// Mock the useRecaptcha hook
+const mockGetRecaptchaResponse = vi.hoisted(() => vi.fn());
+const mockUseRecaptcha = vi.hoisted(() =>
+  vi.fn(() => ({
+    recaptchaLoaded: true,
+    recaptchaError: false,
+    widgetId: 1,
+    recaptchaRef: { current: null },
+    getRecaptchaResponse: mockGetRecaptchaResponse,
+    resetRecaptcha: vi.fn(),
+  })),
+);
+
+vi.mock("#/hooks/use-recaptcha", () => ({
+  useRecaptcha: mockUseRecaptcha,
+}));
+
 describe("AuthModal", () => {
+  let verifyRecaptchaSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     vi.stubGlobal("location", { href: "" });
+    verifyRecaptchaSpy = vi.spyOn(AuthService, "verifyRecaptcha");
+    mockGetRecaptchaResponse.mockReturnValue("");
   });
 
   afterEach(() => {
@@ -26,7 +49,7 @@ describe("AuthModal", () => {
   });
 
   it("should render the GitHub and GitLab buttons", () => {
-    render(
+    renderWithProviders(
       <AuthModal
         githubAuthUrl="mock-url"
         appMode="saas"
@@ -46,9 +69,11 @@ describe("AuthModal", () => {
   });
 
   it("should redirect to GitHub auth URL when GitHub button is clicked", async () => {
+    // Arrange
     const user = userEvent.setup();
+    vi.stubEnv("VITE_RECAPTCHA_SITE_KEY", undefined);
     const mockUrl = "https://github.com/login/oauth/authorize";
-    render(
+    renderWithProviders(
       <AuthModal
         githubAuthUrl={mockUrl}
         appMode="saas"
@@ -56,16 +81,18 @@ describe("AuthModal", () => {
       />,
     );
 
+    // Act
     const githubButton = screen.getByRole("button", {
       name: "GITHUB$CONNECT_TO_GITHUB",
     });
     await user.click(githubButton);
 
+    // Assert
     expect(window.location.href).toBe(mockUrl);
   });
 
   it("should render Terms of Service and Privacy Policy text with correct links", () => {
-    render(<AuthModal githubAuthUrl="mock-url" appMode="saas" />);
+    renderWithProviders(<AuthModal githubAuthUrl="mock-url" appMode="saas" />);
 
     // Find the terms of service section using data-testid
     const termsSection = screen.getByTestId("auth-modal-terms-of-service");
@@ -106,7 +133,7 @@ describe("AuthModal", () => {
   });
 
   it("should open Terms of Service link in new tab", () => {
-    render(<AuthModal githubAuthUrl="mock-url" appMode="saas" />);
+    renderWithProviders(<AuthModal githubAuthUrl="mock-url" appMode="saas" />);
 
     const tosLink = screen.getByRole("link", {
       name: "COMMON$TERMS_OF_SERVICE",
@@ -115,11 +142,167 @@ describe("AuthModal", () => {
   });
 
   it("should open Privacy Policy link in new tab", () => {
-    render(<AuthModal githubAuthUrl="mock-url" appMode="saas" />);
+    renderWithProviders(<AuthModal githubAuthUrl="mock-url" appMode="saas" />);
 
     const privacyLink = screen.getByRole("link", {
       name: "COMMON$PRIVACY_POLICY",
     });
     expect(privacyLink).toHaveAttribute("target", "_blank");
+  });
+
+  describe("reCAPTCHA integration", () => {
+    it("should allow auth when reCAPTCHA is not configured", async () => {
+      // Arrange
+      const user = userEvent.setup();
+      vi.stubEnv("VITE_RECAPTCHA_SITE_KEY", undefined);
+      const mockUrl = "https://github.com/login/oauth/authorize";
+
+      renderWithProviders(
+        <AuthModal
+          githubAuthUrl={mockUrl}
+          appMode="saas"
+          providersConfigured={["github"]}
+        />,
+      );
+
+      // Act
+      const githubButton = screen.getByRole("button", {
+        name: "GITHUB$CONNECT_TO_GITHUB",
+      });
+      await user.click(githubButton);
+
+      // Assert
+      expect(window.location.href).toBe(mockUrl);
+      expect(verifyRecaptchaSpy).not.toHaveBeenCalled();
+    });
+
+    it("should block auth and show error when reCAPTCHA is not completed", async () => {
+      // Arrange
+      const user = userEvent.setup();
+      vi.stubEnv("VITE_RECAPTCHA_SITE_KEY", "test-site-key");
+      const mockUrl = "https://github.com/login/oauth/authorize";
+      mockGetRecaptchaResponse.mockReturnValue("");
+
+      renderWithProviders(
+        <AuthModal
+          githubAuthUrl={mockUrl}
+          appMode="saas"
+          providersConfigured={["github"]}
+        />,
+      );
+
+      // Act
+      const githubButton = screen.getByRole("button", {
+        name: "GITHUB$CONNECT_TO_GITHUB",
+      });
+      await user.click(githubButton);
+
+      // Assert
+      expect(window.location.href).toBe("");
+      expect(screen.getByText(/AUTH\$RECAPTCHA_REQUIRED/i)).toBeInTheDocument();
+      expect(verifyRecaptchaSpy).not.toHaveBeenCalled();
+    });
+
+    it("should block auth when reCAPTCHA verification fails", async () => {
+      // Arrange
+      const user = userEvent.setup();
+      vi.stubEnv("VITE_RECAPTCHA_SITE_KEY", "test-site-key");
+      const mockUrl = "https://github.com/login/oauth/authorize";
+      const mockToken = "recaptcha-token-123";
+      mockGetRecaptchaResponse.mockReturnValue(mockToken);
+      verifyRecaptchaSpy.mockResolvedValue({ success: false });
+
+      renderWithProviders(
+        <AuthModal
+          githubAuthUrl={mockUrl}
+          appMode="saas"
+          providersConfigured={["github"]}
+        />,
+      );
+
+      // Act
+      const githubButton = screen.getByRole("button", {
+        name: "GITHUB$CONNECT_TO_GITHUB",
+      });
+      await user.click(githubButton);
+
+      // Assert
+      await waitFor(() => {
+        expect(window.location.href).toBe("");
+      });
+      expect(screen.getByText(/AUTH\$RECAPTCHA_REQUIRED/i)).toBeInTheDocument();
+      expect(verifyRecaptchaSpy).toHaveBeenCalledWith(mockToken);
+    });
+
+    it("should allow auth when reCAPTCHA verification succeeds", async () => {
+      // Arrange
+      const user = userEvent.setup();
+      vi.stubEnv("VITE_RECAPTCHA_SITE_KEY", "test-site-key");
+      const mockUrl = "https://github.com/login/oauth/authorize";
+      const mockToken = "recaptcha-token-123";
+      mockGetRecaptchaResponse.mockReturnValue(mockToken);
+      verifyRecaptchaSpy.mockResolvedValue({ success: true });
+
+      renderWithProviders(
+        <AuthModal
+          githubAuthUrl={mockUrl}
+          appMode="saas"
+          providersConfigured={["github"]}
+        />,
+      );
+
+      // Act
+      const githubButton = screen.getByRole("button", {
+        name: "GITHUB$CONNECT_TO_GITHUB",
+      });
+      await user.click(githubButton);
+
+      // Assert
+      await waitFor(() => {
+        expect(window.location.href).toBe(mockUrl);
+      });
+      expect(verifyRecaptchaSpy).toHaveBeenCalledWith(mockToken);
+      expect(
+        screen.queryByText(/AUTH\$RECAPTCHA_REQUIRED/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it("should render reCAPTCHA widget container when site key is configured", () => {
+      // Arrange
+      vi.stubEnv("VITE_RECAPTCHA_SITE_KEY", "test-site-key");
+
+      // Act
+      renderWithProviders(
+        <AuthModal
+          githubAuthUrl="mock-url"
+          appMode="saas"
+          providersConfigured={["github"]}
+        />,
+      );
+
+      // Assert
+      expect(mockUseRecaptcha).toHaveBeenCalledWith({
+        siteKey: "test-site-key",
+        enabled: true,
+      });
+    });
+
+    it("should not render reCAPTCHA widget when site key is not configured", () => {
+      // Arrange
+      vi.stubEnv("VITE_RECAPTCHA_SITE_KEY", undefined);
+
+      // Act
+      renderWithProviders(
+        <AuthModal
+          githubAuthUrl="mock-url"
+          appMode="saas"
+          providersConfigured={["github"]}
+        />,
+      );
+
+      // Assert
+      const recaptchaContainer = document.querySelector("div[ref]");
+      expect(recaptchaContainer).not.toBeInTheDocument();
+    });
   });
 });

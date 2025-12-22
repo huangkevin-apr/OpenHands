@@ -8,11 +8,13 @@ from pydantic import SecretStr
 from server.auth.auth_error import AuthError
 from server.auth.saas_user_auth import SaasUserAuth
 from server.routes.auth import (
+    RecaptchaVerifyRequest,
     authenticate,
     keycloak_callback,
     keycloak_offline_callback,
     logout,
     set_response_cookie,
+    verify_recaptcha,
 )
 
 from openhands.integrations.service_types import ProviderType
@@ -635,3 +637,155 @@ async def test_keycloak_callback_missing_email(mock_request):
         assert isinstance(result, RedirectResponse)
         mock_domain_blocker.is_domain_blocked.assert_not_called()
         mock_token_manager.disable_keycloak_user.assert_not_called()
+
+
+class TestVerifyRecaptcha:
+    """Test reCAPTCHA verification endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_verify_recaptcha_success(self):
+        """Test successful reCAPTCHA verification with valid token."""
+        # Arrange
+        request_data = RecaptchaVerifyRequest(token='valid_token_12345')
+        mock_google_response = MagicMock()
+        mock_google_response.json.return_value = {'success': True}
+        mock_google_response.raise_for_status = MagicMock()
+
+        with (
+            patch('server.routes.auth.RECAPTCHA_SECRET_KEY', 'test_secret_key'),
+            patch('httpx.AsyncClient') as mock_client,
+        ):
+            mock_client_instance = AsyncMock()
+            mock_client.return_value.__aenter__.return_value = mock_client_instance
+            mock_client_instance.post = AsyncMock(return_value=mock_google_response)
+
+            # Act
+            result = await verify_recaptcha(request_data)
+
+            # Assert
+            assert isinstance(result, JSONResponse)
+            assert result.status_code == status.HTTP_200_OK
+            result_data = result.body.decode()
+            assert '"success":true' in result_data
+            mock_client_instance.post.assert_called_once_with(
+                'https://www.google.com/recaptcha/api/siteverify',
+                data={'secret': 'test_secret_key', 'response': 'valid_token_12345'},
+                timeout=10.0,
+            )
+
+    @pytest.mark.asyncio
+    async def test_verify_recaptcha_invalid_token(self):
+        """Test reCAPTCHA verification with invalid token."""
+        # Arrange
+        request_data = RecaptchaVerifyRequest(token='invalid_token_12345')
+        mock_google_response = MagicMock()
+        mock_google_response.json.return_value = {
+            'success': False,
+            'error-codes': ['invalid-input-response'],
+        }
+        mock_google_response.raise_for_status = MagicMock()
+
+        with (
+            patch('server.routes.auth.RECAPTCHA_SECRET_KEY', 'test_secret_key'),
+            patch('httpx.AsyncClient') as mock_client,
+        ):
+            mock_client_instance = AsyncMock()
+            mock_client.return_value.__aenter__.return_value = mock_client_instance
+            mock_client_instance.post = AsyncMock(return_value=mock_google_response)
+
+            # Act
+            result = await verify_recaptcha(request_data)
+
+            # Assert
+            assert isinstance(result, JSONResponse)
+            assert result.status_code == status.HTTP_200_OK
+            result_data = result.body.decode()
+            assert '"success":false' in result_data
+            assert '"error_codes"' in result_data
+            assert 'invalid-input-response' in result_data
+
+    @pytest.mark.asyncio
+    async def test_verify_recaptcha_missing_token(self):
+        """Test reCAPTCHA verification with empty token."""
+        # Arrange
+        request_data = RecaptchaVerifyRequest(token='')
+
+        with patch('server.routes.auth.RECAPTCHA_SECRET_KEY', 'test_secret_key'):
+            # Act
+            result = await verify_recaptcha(request_data)
+
+            # Assert
+            assert isinstance(result, JSONResponse)
+            assert result.status_code == status.HTTP_400_BAD_REQUEST
+            result_data = result.body.decode()
+            assert '"success":false' in result_data
+            assert 'Token is required' in result_data
+
+    @pytest.mark.asyncio
+    async def test_verify_recaptcha_secret_key_not_configured(self):
+        """Test reCAPTCHA verification when secret key is not configured."""
+        # Arrange
+        request_data = RecaptchaVerifyRequest(token='valid_token_12345')
+
+        with patch('server.routes.auth.RECAPTCHA_SECRET_KEY', ''):
+            # Act
+            result = await verify_recaptcha(request_data)
+
+            # Assert
+            assert isinstance(result, JSONResponse)
+            assert result.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+            result_data = result.body.decode()
+            assert '"success":false' in result_data
+            assert 'reCAPTCHA not configured' in result_data
+
+    @pytest.mark.asyncio
+    async def test_verify_recaptcha_http_error(self):
+        """Test reCAPTCHA verification when Google API returns HTTP error."""
+        # Arrange
+        import httpx
+
+        request_data = RecaptchaVerifyRequest(token='valid_token_12345')
+
+        with (
+            patch('server.routes.auth.RECAPTCHA_SECRET_KEY', 'test_secret_key'),
+            patch('httpx.AsyncClient') as mock_client,
+        ):
+            mock_client_instance = AsyncMock()
+            mock_client.return_value.__aenter__.return_value = mock_client_instance
+            mock_client_instance.post = AsyncMock(
+                side_effect=httpx.HTTPError('Network error')
+            )
+
+            # Act
+            result = await verify_recaptcha(request_data)
+
+            # Assert
+            assert isinstance(result, JSONResponse)
+            assert result.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+            result_data = result.body.decode()
+            assert '"success":false' in result_data
+            assert 'Failed to verify reCAPTCHA' in result_data
+
+    @pytest.mark.asyncio
+    async def test_verify_recaptcha_unexpected_exception(self):
+        """Test reCAPTCHA verification when unexpected exception occurs."""
+        # Arrange
+        request_data = RecaptchaVerifyRequest(token='valid_token_12345')
+
+        with (
+            patch('server.routes.auth.RECAPTCHA_SECRET_KEY', 'test_secret_key'),
+            patch('httpx.AsyncClient') as mock_client,
+        ):
+            mock_client.return_value.__aenter__.side_effect = ValueError(
+                'Unexpected error'
+            )
+
+            # Act
+            result = await verify_recaptcha(request_data)
+
+            # Assert
+            assert isinstance(result, JSONResponse)
+            assert result.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            result_data = result.body.decode()
+            assert '"success":false' in result_data
+            assert 'Internal server error' in result_data

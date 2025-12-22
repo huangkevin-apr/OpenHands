@@ -43,3 +43,4 @@ BLOCKED_EMAIL_DOMAINS = [
     for domain in os.getenv('BLOCKED_EMAIL_DOMAINS', '').split(',')
     if domain.strip()
 ]
+RECAPTCHA_SECRET_KEY = os.getenv('RECAPTCHA_SECRET_KEY', '').strip()

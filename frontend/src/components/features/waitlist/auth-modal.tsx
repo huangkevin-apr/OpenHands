@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { I18nKey } from "#/i18n/declaration";
 import OpenHandsLogo from "#/assets/branding/openhands-logo.svg?react";
@@ -13,6 +13,8 @@ import { useAuthUrl } from "#/hooks/use-auth-url";
 import { GetConfigResponse } from "#/api/option-service/option.types";
 import { Provider } from "#/types/settings";
 import { useTracking } from "#/hooks/use-tracking";
+import { useRecaptcha } from "#/hooks/use-recaptcha";
+import { useVerifyRecaptcha } from "#/hooks/mutation/use-verify-recaptcha";
 
 interface AuthModalProps {
   githubAuthUrl: string | null;
@@ -29,6 +31,23 @@ export function AuthModal({
 }: AuthModalProps) {
   const { t } = useTranslation();
   const { trackLoginButtonClick } = useTracking();
+  const [recaptchaError, setRecaptchaError] = useState(false);
+
+  // Get reCAPTCHA site key from environment variable
+  const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || undefined;
+
+  // Initialize reCAPTCHA
+  const {
+    recaptchaRef,
+    getRecaptchaResponse,
+    recaptchaError: recaptchaLoadError,
+  } = useRecaptcha({
+    siteKey: recaptchaSiteKey,
+    enabled: !!recaptchaSiteKey,
+  });
+
+  // Hook for verifying reCAPTCHA with backend
+  const { mutateAsync: verifyRecaptcha } = useVerifyRecaptcha();
 
   const gitlabAuthUrl = useAuthUrl({
     appMode: appMode || null,
@@ -54,7 +73,43 @@ export function AuthModal({
     authUrl,
   });
 
-  const handleGitHubAuth = () => {
+  // Validate reCAPTCHA before proceeding with auth
+  const validateRecaptcha = async (): Promise<boolean> => {
+    if (!recaptchaSiteKey) {
+      // If reCAPTCHA is not configured, allow auth to proceed
+      return true;
+    }
+
+    const response = getRecaptchaResponse();
+    if (!response) {
+      setRecaptchaError(true);
+      return false;
+    }
+
+    try {
+      // Verify the token with the backend using the mutation hook
+      const verificationResult = await verifyRecaptcha(response);
+      if (!verificationResult.success) {
+        setRecaptchaError(true);
+        return false;
+      }
+
+      setRecaptchaError(false);
+      return true;
+    } catch (error) {
+      // Log error to console for debugging
+      console.error("reCAPTCHA verification failed", error);
+      setRecaptchaError(true);
+      return false;
+    }
+  };
+
+  const handleGitHubAuth = async () => {
+    const hasCaptchaVerified = await validateRecaptcha();
+    if (!hasCaptchaVerified) {
+      return;
+    }
+
     if (githubAuthUrl) {
       trackLoginButtonClick({ provider: "github" });
       // Always start the OIDC flow, let the backend handle TOS check
@@ -62,7 +117,12 @@ export function AuthModal({
     }
   };
 
-  const handleGitLabAuth = () => {
+  const handleGitLabAuth = async () => {
+    const hasCaptchaVerified = await validateRecaptcha();
+    if (!hasCaptchaVerified) {
+      return;
+    }
+
     if (gitlabAuthUrl) {
       trackLoginButtonClick({ provider: "gitlab" });
       // Always start the OIDC flow, let the backend handle TOS check
@@ -70,7 +130,12 @@ export function AuthModal({
     }
   };
 
-  const handleBitbucketAuth = () => {
+  const handleBitbucketAuth = async () => {
+    const hasCaptchaVerified = await validateRecaptcha();
+    if (!hasCaptchaVerified) {
+      return;
+    }
+
     if (bitbucketAuthUrl) {
       trackLoginButtonClick({ provider: "bitbucket" });
       // Always start the OIDC flow, let the backend handle TOS check
@@ -78,14 +143,24 @@ export function AuthModal({
     }
   };
 
-  const handleAzureDevOpsAuth = () => {
+  const handleAzureDevOpsAuth = async () => {
+    const hasCaptchaVerified = await validateRecaptcha();
+    if (!hasCaptchaVerified) {
+      return;
+    }
+
     if (azureDevOpsAuthUrl) {
       // Always start the OIDC flow, let the backend handle TOS check
       window.location.href = azureDevOpsAuthUrl;
     }
   };
 
-  const handleEnterpriseSsoAuth = () => {
+  const handleEnterpriseSsoAuth = async () => {
+    const hasCaptchaVerified = await validateRecaptcha();
+    if (!hasCaptchaVerified) {
+      return;
+    }
+
     if (enterpriseSsoUrl) {
       trackLoginButtonClick({ provider: "enterprise_sso" });
       // Always start the OIDC flow, let the backend handle TOS check
@@ -123,6 +198,11 @@ export function AuthModal({
     <ModalBackdrop>
       <ModalBody className="border border-tertiary">
         <OpenHandsLogo width={68} height={46} />
+        {recaptchaError && (
+          <div className="text-sm text-red-500 text-center mt-2 mb-2">
+            {t(I18nKey.AUTH$RECAPTCHA_REQUIRED)}
+          </div>
+        )}
         <div className="flex flex-col gap-2 w-full items-center text-center">
           <h1 className="text-2xl font-bold">
             {t(I18nKey.AUTH$SIGN_IN_WITH_IDENTITY_PROVIDER)}
@@ -193,6 +273,17 @@ export function AuthModal({
                 >
                   {t(I18nKey.ENTERPRISE_SSO$CONNECT_TO_ENTERPRISE_SSO)}
                 </BrandButton>
+              )}
+
+              {recaptchaSiteKey && (
+                <div className="flex justify-center mt-2">
+                  <div ref={recaptchaRef} />
+                  {recaptchaLoadError && (
+                    <div className="text-xs text-muted-foreground text-center mt-1">
+                      {t(I18nKey.AUTH$RECAPTCHA_LOAD_ERROR)}
+                    </div>
+                  )}
+                </div>
               )}
             </>
           )}
