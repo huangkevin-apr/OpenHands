@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import SecretStr
 
 from openhands.controller.agent import Agent
 from openhands.controller.agent_controller import AgentController
@@ -10,7 +11,6 @@ from openhands.core.config.agent_config import AgentConfig
 from openhands.events import EventStream, EventStreamSubscriber
 from openhands.integrations.provider import CustomSecret, ProviderToken
 from openhands.integrations.service_types import ProviderType
-from pydantic import SecretStr
 from openhands.llm.llm_registry import LLMRegistry
 from openhands.llm.metrics import Metrics
 from openhands.memory.memory import Memory
@@ -502,4 +502,6 @@ def test_override_provider_tokens_with_custom_secret(
 
     # Verify that Bitbucket token remains unchanged (no custom secret for it)
     assert ProviderType.BITBUCKET in result
-    assert result[ProviderType.BITBUCKET].token.get_secret_value() == 'bitbucket_token_789'
+    assert (
+        result[ProviderType.BITBUCKET].token.get_secret_value() == 'bitbucket_token_789'
+    )
