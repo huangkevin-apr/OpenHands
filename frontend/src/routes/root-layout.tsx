@@ -109,6 +109,7 @@ export default function MainApp() {
     setEmailVerificationModalOpen,
     emailVerified,
     hasDuplicatedEmail,
+    userId,
   } = useEmailVerification();
 
   // Auto-login if login method is stored in local storage
@@ -265,6 +266,7 @@ export default function MainApp() {
           onClose={() => {
             setEmailVerificationModalOpen(false);
           }}
+          userId={userId}
         />
       )}
       {config.data?.APP_MODE === "oss" && consentFormIsOpen && (
