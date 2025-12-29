@@ -35,7 +35,11 @@ describe("useWebSocket", () => {
     }),
   );
 
-  beforeAll(() => mswServer.listen());
+  beforeAll(() =>
+    mswServer.listen({
+      onUnhandledRequest: "warn",
+    }),
+  );
   afterEach(() => mswServer.resetHandlers());
   afterAll(() => mswServer.close());
 
