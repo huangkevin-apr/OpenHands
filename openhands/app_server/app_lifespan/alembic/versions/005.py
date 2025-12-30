@@ -1,7 +1,7 @@
 """Update conversation_metadata table to match StoredConversationMetadata dataclass
 
-Revision ID: 004
-Revises: 003
+Revision ID: 005
+Revises: 004
 Create Date: 2025-11-11 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '004'
-down_revision: Union[str, Sequence[str], None] = '003'
+revision: str = '005'
+down_revision: Union[str, Sequence[str], None] = '004'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
