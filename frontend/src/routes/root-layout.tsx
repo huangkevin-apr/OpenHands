@@ -13,7 +13,6 @@ import { useIsAuthed } from "#/hooks/query/use-is-authed";
 import { useConfig } from "#/hooks/query/use-config";
 import { Sidebar } from "#/components/features/sidebar/sidebar";
 import { ReauthModal } from "#/components/features/waitlist/reauth-modal";
-import { EmailVerificationModal } from "#/components/features/waitlist/email-verification-modal";
 import { AnalyticsConsentFormModal } from "#/components/features/analytics/analytics-consent-form-modal";
 import { useSettings } from "#/hooks/query/use-settings";
 import { useMigrateUserConsent } from "#/hooks/use-migrate-user-consent";
@@ -25,7 +24,6 @@ import { useAutoLogin } from "#/hooks/use-auto-login";
 import { useAuthCallback } from "#/hooks/use-auth-callback";
 import { useReoTracking } from "#/hooks/use-reo-tracking";
 import { useSyncPostHogConsent } from "#/hooks/use-sync-posthog-consent";
-import { useEmailVerification } from "#/hooks/use-email-verification";
 import { LOCAL_STORAGE_KEYS } from "#/utils/local-storage";
 import { EmailVerificationGuard } from "#/components/features/guards/email-verification-guard";
 import { MaintenanceBanner } from "#/components/features/maintenance/maintenance-banner";
@@ -83,8 +81,6 @@ export default function MainApp() {
   } = useIsAuthed();
 
   const [consentFormIsOpen, setConsentFormIsOpen] = React.useState(false);
-  const { emailVerificationModalOpen, setEmailVerificationModalOpen } =
-    useEmailVerification();
 
   // Auto-login if login method is stored in local storage
   useAutoLogin();
@@ -245,13 +241,6 @@ export default function MainApp() {
       </div>
 
       {renderReAuthModal && <ReauthModal />}
-      {emailVerificationModalOpen && (
-        <EmailVerificationModal
-          onClose={() => {
-            setEmailVerificationModalOpen(false);
-          }}
-        />
-      )}
       {config.data?.APP_MODE === "oss" && consentFormIsOpen && (
         <AnalyticsConsentFormModal
           onClose={() => {
