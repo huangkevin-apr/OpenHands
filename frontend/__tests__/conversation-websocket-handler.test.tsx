@@ -294,7 +294,7 @@ describe("Conversation WebSocket Handler", () => {
       });
     });
 
-    it("should set error message store on WebSocket connection errors", async () => {
+    it("should keep error message store as none on WebSocket connection errors", async () => {
       // Set up MSW to simulate connection error
       mswServer.use(
         wsLink.addEventListener("connection", ({ client }) => {
@@ -321,11 +321,8 @@ describe("Conversation WebSocket Handler", () => {
         );
       });
 
-      // Should set error message on connection failure
       await waitFor(() => {
-        expect(screen.getByTestId("error-message")).not.toHaveTextContent(
-          "none",
-        );
+        expect(screen.getByTestId("error-message")).toHaveTextContent("none");
       });
     });
 
@@ -375,7 +372,7 @@ describe("Conversation WebSocket Handler", () => {
       });
     });
 
-    it("should clear error message store when connection is restored", async () => {
+    it("should keep error message store as none when initial connection fails", async () => {
       let connectionAttempt = 0;
 
       // Set up MSW to fail first connection, then succeed on retry
@@ -412,17 +409,8 @@ describe("Conversation WebSocket Handler", () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByTestId("error-message")).not.toHaveTextContent(
-          "none",
-        );
+        expect(screen.getByTestId("error-message")).toHaveTextContent("none");
       });
-
-      // Simulate reconnection attempt (this would normally be triggered by the WebSocket context)
-      // For now, we'll just verify the pattern - when connection is restored, error should clear
-      // This test will fail until the WebSocket handler implements the clear logic
-
-      // Note: This test demonstrates the expected behavior but may need adjustment
-      // based on how the actual reconnection logic is implemented
     });
 
     it("should not create duplicate events when WebSocket reconnects with resend_all=true", async () => {

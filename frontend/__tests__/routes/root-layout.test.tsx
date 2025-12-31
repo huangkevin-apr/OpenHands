@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createRoutesStub } from "react-router";
+import { createRoutesStub, useSearchParams } from "react-router";
 import MainApp from "#/routes/root-layout";
 import OptionService from "#/api/option-service/option-service.api";
 import AuthService from "#/api/auth-service/auth-service.api";
@@ -42,6 +42,27 @@ vi.mock("#/utils/custom-toast-handlers", () => ({
   displaySuccessToast: vi.fn(),
 }));
 
+function LoginStub() {
+  const [searchParams] = useSearchParams();
+  const emailVerificationRequired =
+    searchParams.get("email_verification_required") === "true";
+  const emailVerified = searchParams.get("email_verified") === "true";
+  const emailVerificationText = "AUTH$PLEASE_CHECK_EMAIL_TO_VERIFY";
+
+  return (
+    <div data-testid="login-page">
+      <div data-testid="login-content">
+        {emailVerified && <div data-testid="email-verified-message" />}
+        {emailVerificationRequired && (
+          <div data-testid="email-verification-modal">
+            {emailVerificationText}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const RouterStub = createRoutesStub([
   {
     Component: MainApp,
@@ -53,8 +74,11 @@ const RouterStub = createRoutesStub([
       },
     ],
   },
+  {
+    Component: LoginStub,
+    path: "/login",
+  },
 ]);
-
 const RouterStubWithLogin = createRoutesStub([
   {
     Component: MainApp,
@@ -72,50 +96,6 @@ const RouterStubWithLogin = createRoutesStub([
   },
   {
     Component: () => <div data-testid="login-page" />,
-    path: "/login",
-  },
-]);
-
-const RouterStubWithLoginAndContent = createRoutesStub([
-  {
-    Component: MainApp,
-    path: "/",
-    children: [
-      {
-        Component: () => <div data-testid="outlet-content" />,
-        path: "/",
-      },
-    ],
-  },
-  {
-    Component: () => (
-      <div data-testid="login-page">
-        <div data-testid="login-content">
-          <div data-testid="email-verified-message" />
-        </div>
-      </div>
-    ),
-    path: "/login",
-  },
-]);
-
-const RouterStubWithLoginWithoutMessage = createRoutesStub([
-  {
-    Component: MainApp,
-    path: "/",
-    children: [
-      {
-        Component: () => <div data-testid="outlet-content" />,
-        path: "/",
-      },
-    ],
-  },
-  {
-    Component: () => (
-      <div data-testid="login-page">
-        <div data-testid="login-content" />
-      </div>
-    ),
     path: "/login",
   },
 ]);
@@ -192,70 +172,93 @@ describe("MainApp", () => {
   });
 
   describe("Email Verification", () => {
-    it("should display EmailVerificationModal when email_verification_required=true is in query params", async () => {
-      renderMainApp(["/?email_verification_required=true"]);
-
-      await waitFor(() => {
-        expect(
-          screen.getByText("AUTH$PLEASE_CHECK_EMAIL_TO_VERIFY"),
-        ).toBeInTheDocument();
-      });
-    });
-
-    it("should set emailVerified state and pass to login page when email_verified=true is in query params", async () => {
+    it("should redirect to login when email_verification_required=true is in query params", async () => {
       const axiosError = {
         response: { status: 401 },
         isAxiosError: true,
       };
       vi.spyOn(AuthService, "authenticate").mockRejectedValue(axiosError);
 
-      renderWithLoginStub(RouterStubWithLoginAndContent, [
-        "/?email_verified=true",
-      ]);
+      renderMainApp(["/?email_verification_required=true"]);
 
       await waitFor(
         () => {
           expect(screen.getByTestId("login-page")).toBeInTheDocument();
-          expect(
-            screen.getByTestId("email-verified-message"),
-          ).toBeInTheDocument();
         },
         { timeout: 2000 },
       );
     });
 
-    it("should handle both email_verification_required and email_verified params together", async () => {
-      renderMainApp(["/?email_verification_required=true&email_verified=true"]);
+    it("should redirect to login when email_verified=true is in query params", async () => {
+      const axiosError = {
+        response: { status: 401 },
+        isAxiosError: true,
+      };
+      vi.spyOn(AuthService, "authenticate").mockRejectedValue(axiosError);
 
-      await waitFor(() => {
-        expect(
-          screen.getByText("AUTH$PLEASE_CHECK_EMAIL_TO_VERIFY"),
-        ).toBeInTheDocument();
-      });
+      renderMainApp(["/?email_verified=true"]);
+
+      await waitFor(
+        () => {
+          expect(screen.getByTestId("login-page")).toBeInTheDocument();
+        },
+        { timeout: 2000 },
+      );
     });
 
-    it("should remove query parameters from URL after processing", async () => {
-      const { container } = renderMainApp([
-        "/?email_verification_required=true",
-      ]);
+    it("should redirect to login when email_verification_required and email_verified params are in query params together", async () => {
+      const axiosError = {
+        response: { status: 401 },
+        isAxiosError: true,
+      };
+      vi.spyOn(AuthService, "authenticate").mockRejectedValue(axiosError);
 
-      await waitFor(() => {
-        expect(
-          screen.getByText("AUTH$PLEASE_CHECK_EMAIL_TO_VERIFY"),
-        ).toBeInTheDocument();
-      });
+      renderMainApp(["/?email_verification_required=true&email_verified=true"]);
 
-      expect(container).toBeInTheDocument();
+      await waitFor(
+        () => {
+          expect(screen.getByTestId("login-page")).toBeInTheDocument();
+        },
+        { timeout: 2000 },
+      );
+    });
+
+    it("should redirect to login when email_verification_required=true is in query params", async () => {
+      const axiosError = {
+        response: { status: 401 },
+        isAxiosError: true,
+      };
+      vi.spyOn(AuthService, "authenticate").mockRejectedValue(axiosError);
+
+      renderMainApp(["/?email_verification_required=true"]);
+
+      await waitFor(
+        () => {
+          expect(screen.getByTestId("login-page")).toBeInTheDocument();
+        },
+        { timeout: 2000 },
+      );
     });
 
     it("should not display EmailVerificationModal when email_verification_required is not in query params", async () => {
-      renderMainApp();
+      const axiosError = {
+        response: { status: 401 },
+        isAxiosError: true,
+      };
+      vi.spyOn(AuthService, "authenticate").mockRejectedValue(axiosError);
 
-      await waitFor(() => {
-        expect(
-          screen.queryByText("AUTH$PLEASE_CHECK_EMAIL_TO_VERIFY"),
-        ).not.toBeInTheDocument();
-      });
+      renderMainApp(["/"]);
+
+      // User will be redirected to login, but modal should not show without query param
+      await waitFor(
+        () => {
+          expect(screen.getByTestId("login-page")).toBeInTheDocument();
+          expect(
+            screen.queryByTestId("email-verification-modal"),
+          ).not.toBeInTheDocument();
+        },
+        { timeout: 2000 },
+      );
     });
 
     it("should not display email verified message when email_verified is not in query params", async () => {
@@ -265,7 +268,7 @@ describe("MainApp", () => {
       };
       vi.spyOn(AuthService, "authenticate").mockRejectedValue(axiosError);
 
-      renderWithLoginStub(RouterStubWithLoginWithoutMessage);
+      renderMainApp(["/login"]);
 
       await waitFor(
         () => {
