@@ -110,10 +110,30 @@ class LiteLlmManager:
                     return None
                 user_info = user_json['user_info']
                 max_budget = user_info.get('max_budget', 0.0)
+                spend = user_info.get('spend', 0.0)
+                # In upgrade to V4, we no longer use billing margin, but instead apply this directly
+                # in litellm. The default billing marign was 2 before this (hence the magic numbers below)
+                if (
+                    user_settings
+                    and user_settings.user_version < 4
+                    and user_settings.billing_margin
+                    and user_settings.billing_margin != 1.0
+                ):
+                    billing_margin = user_settings.billing_margin
+                    logger.info(
+                        'user_settings_v4_budget_upgrade',
+                        extra={
+                            'max_budget': max_budget,
+                            'billing_margin': billing_margin,
+                            'spend': spend,
+                        },
+                    )
+                    max_budget *= billing_margin
+                    spend *= billing_margin
+
                 if not max_budget:
                     # if max_budget is None, then we've already migrated the User
                     return None
-                spend = user_info.get('spend', 0.0)
                 credits = max(max_budget - spend, 0.0)
 
                 await LiteLlmManager._create_team(
