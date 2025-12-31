@@ -109,6 +109,7 @@ class UserStore:
             org = Org(
                 id=uuid.UUID(user_id),
                 name=f'user_{user_id}_org',
+                org_version=user_settings.user_version,
                 contact_name=user_info['username'],
                 contact_email=user_info['email'],
             )
