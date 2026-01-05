@@ -48,11 +48,10 @@ vi.mock("react-google-recaptcha", () => {
 });
 
 describe("AuthModal", () => {
-  let verifyRecaptchaSpy: ReturnType<typeof vi.spyOn>;
+  const verifyRecaptchaSpy = vi.spyOn(AuthService, "verifyRecaptcha");
 
   beforeEach(() => {
     vi.stubGlobal("location", { href: "" });
-    verifyRecaptchaSpy = vi.spyOn(AuthService, "verifyRecaptcha");
     mockExecuteAsync.mockResolvedValue("mock-token");
   });
 
