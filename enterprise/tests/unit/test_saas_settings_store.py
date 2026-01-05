@@ -1,6 +1,5 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 from pydantic import SecretStr
 from server.constants import get_default_litellm_model
