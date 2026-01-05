@@ -9,6 +9,7 @@ from server.constants import (
     LITE_LLM_API_URL,
     ORG_SETTINGS_VERSION,
     PERSONAL_WORKSPACE_VERSION_TO_MODEL,
+    get_default_litellm_model,
 )
 from server.logger import logger
 from sqlalchemy import text
@@ -123,6 +124,10 @@ class UserStore:
                 decrypted_user_settings,
             )
 
+            custom_settings = UserStore._has_custom_settings(
+                decrypted_user_settings, user_settings.user_version
+            )
+
             # avoids circular reference. This migrate method is temprorary until all users are migrated.
             from integrations.stripe_service import migrate_customer
 
@@ -132,6 +137,13 @@ class UserStore:
 
             org_kwargs = OrgStore.get_kwargs_from_user_settings(decrypted_user_settings)
             org_kwargs.pop('id', None)
+
+            # if user has custom settings, set org defaults to current version
+            if custom_settings:
+                org_kwargs['default_llm_model'] = get_default_litellm_model()
+                org_kwargs['llm_base_url'] = LITE_LLM_API_URL
+                org_kwargs['org_version'] = ORG_SETTINGS_VERSION
+
             for key, value in org_kwargs.items():
                 if hasattr(org, key):
                     setattr(org, key, value)
@@ -158,9 +170,7 @@ class UserStore:
 
             # if the user did not have custom settings in the old model,
             # then use the org defaults by not setting org_member fields
-            if not UserStore._has_custom_settings(
-                decrypted_user_settings, user_settings.user_version
-            ):
+            if not custom_settings:
                 del org_member_kwargs['llm_model']
                 del org_member_kwargs['llm_base_url']
                 del org_member_kwargs['llm_api_key_for_byor']
