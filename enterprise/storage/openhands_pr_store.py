@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import and_, desc
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import sessionmaker
 from storage.database import session_maker
 from storage.openhands_pr import OpenhandsPR
@@ -135,22 +136,29 @@ class OpenhandsPRStore:
         Returns:
             List of OpenhandsPR objects that need processing
         """
-        with self.session_maker() as session:
-            unprocessed_prs = (
-                session.query(OpenhandsPR)
-                .filter(
-                    and_(
-                        ~OpenhandsPR.processed,
-                        OpenhandsPR.process_attempts < max_retries,
-                        OpenhandsPR.provider == ProviderType.GITHUB.value,
+        try:
+            with self.session_maker() as session:
+                unprocessed_prs = (
+                    session.query(OpenhandsPR)
+                    .filter(
+                        and_(
+                            ~OpenhandsPR.processed,
+                            OpenhandsPR.process_attempts < max_retries,
+                            OpenhandsPR.provider == ProviderType.GITHUB.value,
+                        )
                     )
+                    .order_by(desc(OpenhandsPR.updated_at))
+                    .limit(limit)
+                    .all()
                 )
-                .order_by(desc(OpenhandsPR.updated_at))
-                .limit(limit)
-                .all()
-            )
 
-            return unprocessed_prs
+                return unprocessed_prs
+        except ProgrammingError as e:
+            logger.warning(
+                f'Could not query openhands_prs table - it may not exist yet. '
+                f'Run database migrations first. Error: {e}'
+            )
+            return []
 
     @classmethod
     def get_instance(cls):
