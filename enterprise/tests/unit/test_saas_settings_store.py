@@ -26,6 +26,31 @@ def mock_github_user():
 
 
 @pytest.fixture
+def mock_litellm_api():
+    api_key_patch = patch('storage.lite_llm_manager.LITE_LLM_API_KEY', 'test_key')
+    api_url_patch = patch(
+        'storage.lite_llm_manager.LITE_LLM_API_URL', 'http://test.url'
+    )
+    team_id_patch = patch('storage.lite_llm_manager.LITE_LLM_TEAM_ID', 'test_team')
+    client_patch = patch('httpx.AsyncClient')
+
+    with api_key_patch, api_url_patch, team_id_patch, client_patch as mock_client:
+        mock_response = AsyncMock()
+        mock_response.is_success = True
+        mock_response.json = MagicMock(return_value={'key': 'test_api_key'})
+        mock_client.return_value.__aenter__.return_value.post.return_value = (
+            mock_response
+        )
+        mock_client.return_value.__aenter__.return_value.get.return_value = (
+            mock_response
+        )
+        mock_client.return_value.__aenter__.return_value.patch.return_value = (
+            mock_response
+        )
+        yield mock_client
+
+
+@pytest.fixture
 def mock_config():
     config = MagicMock(spec=OpenHandsConfig)
     config.jwt_secret = SecretStr('test_secret')
