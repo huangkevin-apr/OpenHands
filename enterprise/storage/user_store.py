@@ -73,6 +73,9 @@ class UserStore:
             from storage.org_member_store import OrgMemberStore
 
             org_member_kwargs = OrgMemberStore.get_kwargs_from_settings(settings)
+            # avoid setting org member llm fields to use org defaults on user creation
+            del org_member_kwargs['llm_model']
+            del org_member_kwargs['llm_base_url']
             org_member = OrgMember(
                 org_id=org.id,
                 user_id=user.id,
