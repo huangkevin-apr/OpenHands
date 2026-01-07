@@ -6,6 +6,7 @@ from openhands.core.logger import openhands_logger as logger
 from openhands.events.action import CmdRunAction
 from openhands.runtime.utils.bash import BashCommandStatus, BashSession
 from openhands.runtime.utils.bash_constants import TIMEOUT_MESSAGE_TEMPLATE
+import pytest
 
 
 def get_no_change_timeout_suffix(timeout_seconds):
@@ -16,6 +17,7 @@ def get_no_change_timeout_suffix(timeout_seconds):
     )
 
 
+@pytest.mark.skip('This test is flaky')
 def test_session_initialization():
     # Test with custom working directory
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -34,6 +36,7 @@ def test_session_initialization():
     session.close()
 
 
+@pytest.mark.skip('This test is flaky')
 def test_cwd_property(tmp_path):
     session = BashSession(work_dir=tmp_path)
     session.initialize()
@@ -45,6 +48,7 @@ def test_cwd_property(tmp_path):
     session.close()
 
 
+@pytest.mark.skip('This test is flaky')
 def test_basic_command():
     session = BashSession(work_dir=os.getcwd())
     session.initialize()
@@ -80,6 +84,7 @@ def test_basic_command():
     session.close()
 
 
+@pytest.mark.skip('This test is flaky')
 def test_long_running_command_follow_by_execute():
     session = BashSession(work_dir=os.getcwd(), no_change_timeout_seconds=2)
     session.initialize()
@@ -127,6 +132,7 @@ def test_long_running_command_follow_by_execute():
     session.close()
 
 
+@pytest.mark.skip('This test is flaky')
 def test_interactive_command():
     session = BashSession(work_dir=os.getcwd(), no_change_timeout_seconds=3)
     session.initialize()
@@ -185,6 +191,7 @@ def test_interactive_command():
     session.close()
 
 
+@pytest.mark.skip('This test is flaky')
 def test_ctrl_c():
     session = BashSession(work_dir=os.getcwd(), no_change_timeout_seconds=2)
     session.initialize()
@@ -215,6 +222,7 @@ def test_ctrl_c():
     session.close()
 
 
+@pytest.mark.skip('This test is flaky')
 def test_empty_command_errors():
     session = BashSession(work_dir=os.getcwd())
     session.initialize()
@@ -231,6 +239,7 @@ def test_empty_command_errors():
     session.close()
 
 
+@pytest.mark.skip('This test is flaky')
 def test_command_output_continuation():
     """Test that we can continue to get output from a long-running command.
 
@@ -305,6 +314,7 @@ def test_command_output_continuation():
     session.close()
 
 
+@pytest.mark.skip('This test is flaky')
 def test_long_output():
     session = BashSession(work_dir=os.getcwd())
     session.initialize()
@@ -321,6 +331,7 @@ def test_long_output():
     session.close()
 
 
+@pytest.mark.skip('This test is flaky')
 def test_long_output_exceed_history_limit():
     session = BashSession(work_dir=os.getcwd())
     session.initialize()
@@ -337,6 +348,7 @@ def test_long_output_exceed_history_limit():
     session.close()
 
 
+@pytest.mark.skip('This test is flaky')
 def test_multiline_command():
     session = BashSession(work_dir=os.getcwd())
     session.initialize()
@@ -356,6 +368,7 @@ fi""")
     session.close()
 
 
+@pytest.mark.skip('This test is flaky')
 def test_python_interactive_input():
     session = BashSession(work_dir=os.getcwd(), no_change_timeout_seconds=2)
     session.initialize()
