@@ -15,6 +15,12 @@ import {
   resetOrgsAndMembersMockData,
 } from "#/mocks/org-handlers";
 import OptionService from "#/api/option-service/option-service.api";
+import {
+  checkIfUserHasPermissionToChangeRole,
+  getAvailableRolesToChangeTo,
+} from "#/utils/org/permission-checks";
+import { rolePermissions, Permission } from "#/utils/org/permissions";
+import { OrganizationUserRole, OrganizationMember } from "#/types/org";
 
 function ManageOrganizationMembersWithPortalRoot() {
   return (
@@ -821,4 +827,112 @@ describe("Manage Organization Members Route", () => {
       },
     );
   });
+
+
+  describe("checkIfUserHasPermissionToChangeRole", () => {
+    let user: OrganizationMember | undefined;
+
+    const run = (memberId: string, memberRole: OrganizationUserRole) =>
+      checkIfUserHasPermissionToChangeRole(user, memberId, memberRole);
+
+    const createUser = (
+      user_id: string,
+      role: OrganizationUserRole
+    ): OrganizationMember => ({
+      org_id: "org1",
+      user_id,
+      email: `${user_id}@example.com`,
+      role,
+      llm_api_key: "dummy",
+      max_iterations: 1,
+      llm_model: "dummy-model",
+      llm_api_key_for_byor: null,
+      llm_base_url: "https://dummy.com",
+      status: "active",
+    });
+
+    beforeEach(() => {
+      user = createUser("user1", "member");
+    });
+
+    it("returns false if no user is set", () => {
+      user = undefined;
+      expect(run("user2", "member")).toBe(false);
+    });
+
+    it("returns false if user tries to change their own role", () => {
+      user = createUser("user1", "admin");
+      expect(run("user1", "member")).toBe(false);
+    });
+
+    it("returns false if user is a member", () => {
+      user = createUser("user1", "member");
+      expect(run("user2", "member")).toBe(false);
+      expect(run("user2", "admin")).toBe(false);
+      expect(run("user2", "owner")).toBe(false);
+    });
+
+    describe("admin role", () => {
+      beforeEach(() => {
+        user = createUser("admin1", "admin");
+      });
+
+      it("cannot change admin or owner roles", () => {
+        expect(run("user2", "admin")).toBe(false);
+        expect(run("user2", "owner")).toBe(false);
+      });
+
+      it("can change member roles if permission exists", () => {
+        expect(run("user2", "member")).toBe(
+          rolePermissions.admin.includes("change_user_role:member")
+        );
+      });
+    });
+
+    describe("owner role", () => {
+      beforeEach(() => {
+        user = createUser("owner1", "owner");
+      });
+
+      it("cannot change another owner's role", () => {
+        expect(run("owner2", "owner")).toBe(false);
+      });
+
+      it("can change admin and member roles", () => {
+        expect(run("admin1", "admin")).toBe(
+          rolePermissions.owner.includes("change_user_role:admin")
+        );
+        expect(run("member1", "member")).toBe(
+          rolePermissions.owner.includes("change_user_role:member")
+        );
+      });
+    });
+  });
+
+  describe("getAvailableRolesToChangeTo", () => {
+    it("returns empty array if user has no permissions", () => {
+      const result = getAvailableRolesToChangeTo([]);
+      expect(result).toEqual([]);
+    });
+
+    it("returns only roles the user has permission for", () => {
+      const userPermissions: Permission[] = [
+        "change_user_role:member",
+        "change_user_role:admin",
+      ];
+      const result = getAvailableRolesToChangeTo(userPermissions);
+      expect(result.sort()).toEqual(["admin", "member"].sort());
+    });
+
+    it("returns all roles if user has all permissions", () => {
+      const allPermissions: Permission[] = [
+        "change_user_role:member",
+        "change_user_role:admin",
+        "change_user_role:owner",
+      ];
+      const result = getAvailableRolesToChangeTo(allPermissions);
+      expect(result.sort()).toEqual(["member", "admin", "owner"].sort());
+    });
+  });
+
 });

@@ -11,7 +11,6 @@ import { SettingsInput } from "#/components/features/settings/settings-input";
 import { BrandButton } from "#/components/features/settings/brand-button";
 import { useMe } from "#/hooks/query/use-me";
 import { useConfig } from "#/hooks/query/use-config";
-import { rolePermissions } from "#/utils/org/permissions";
 import { getSelectedOrganizationIdFromStore } from "#/stores/selected-organization-store";
 import { getMeFromQueryClient } from "#/utils/query-client-getters";
 import { queryClient } from "#/query-client-config";
@@ -21,6 +20,7 @@ import { useUpdateOrganization } from "#/hooks/mutation/use-update-organization"
 import { useDeleteOrganization } from "#/hooks/mutation/use-delete-organization";
 import { CreditsChip } from "#/ui/credits-chip";
 import { InteractiveChip } from "#/ui/interactive-chip";
+import { usePermission } from "#/hooks/organizations/use-permissions";
 
 interface ChangeOrgNameModalProps {
   onClose: () => void;
@@ -233,6 +233,13 @@ function ManageOrg() {
   const { data: organizationPaymentInfo } = useOrganizationPaymentInfo();
   const { data: config } = useConfig();
 
+  const role = me?.role ?? "member";
+  const { hasPermission } = usePermission(role);
+
+  const canChangeOrgName = !!me && hasPermission("change_organization_name");
+  const canDeleteOrg = !!me && hasPermission("delete_organization");
+  const canAddCredits = !!me && hasPermission("add_credits");
+
   const [addCreditsFormVisible, setAddCreditsFormVisible] =
     React.useState(false);
   const [changeOrgNameFormVisible, setChangeOrgNameFormVisible] =
@@ -240,13 +247,7 @@ function ManageOrg() {
   const [deleteOrgConfirmationVisible, setDeleteOrgConfirmationVisible] =
     React.useState(false);
 
-  const canChangeOrgName =
-    !!me && rolePermissions[me.role].includes("change_organization_name");
-  const canDeleteOrg =
-    !!me && rolePermissions[me.role].includes("delete_organization");
-  const canAddCredits =
-    !!me && rolePermissions[me.role].includes("add_credits");
-  const isBillingHidden = config?.FEATURE_FLAGS?.HIDE_BILLING;
+  const isBillingHidden = config?.FEATURE_FLAGS?.HIDE_BILLING; // TODO use hook
 
   return (
     <div

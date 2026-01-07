@@ -17,6 +17,11 @@ import { queryClient } from "#/query-client-config";
 import { getSelectedOrganizationIdFromStore } from "#/stores/selected-organization-store";
 import { getMeFromQueryClient } from "#/utils/query-client-getters";
 import { I18nKey } from "#/i18n/declaration";
+import { usePermission } from "#/hooks/organizations/use-permissions";
+import {
+  checkIfUserHasPermissionToChangeRole,
+  getAvailableRolesToChangeTo,
+} from "#/utils/org/permission-checks";
 
 export const clientLoader = async () => {
   const selectedOrgId = getSelectedOrganizationIdFromStore();
@@ -45,9 +50,6 @@ function ManageOrganizationMembers() {
   const [inviteModalOpen, setInviteModalOpen] = React.useState(false);
 
   const currentUserRole = user?.role || "member";
-  const hasPermissionToInvite = rolePermissions[currentUserRole].includes(
-    "invite_user_to_organization",
-  );
 
   const handleRoleSelectionClick = (id: string, role: OrganizationUserRole) => {
     updateMemberRole({ userId: id, role });
@@ -57,42 +59,14 @@ function ManageOrganizationMembers() {
     removeMember({ userId });
   };
 
-  const checkIfUserHasPermissionToChangeRole = (
-    memberId: string,
-    memberRole: OrganizationUserRole,
-  ) => {
-    if (!user) return false;
+  const availableRolesToChangeTo = React.useMemo(
+    () => getAvailableRolesToChangeTo(rolePermissions[currentUserRole]),
+    [currentUserRole],
+  );
 
-    // Users cannot change their own role
-    if (memberId === user.user_id) return false;
-
-    // Owners cannot change another owner's role
-    if (user.role === "owner" && memberRole === "owner") return false;
-
-    // Admins cannot change another admin's role
-    if (user.role === "admin" && memberRole === "admin") return false;
-
-    const userPermissions = rolePermissions[user.role];
-    return userPermissions.includes(`change_user_role:${memberRole}`);
-  };
-
-  const availableRolesToChangeTo = React.useMemo((): OrganizationUserRole[] => {
-    if (!user) return [];
-    const availableRoles: OrganizationUserRole[] = [];
-    const userPermissions = rolePermissions[user.role];
-
-    if (userPermissions.includes("change_user_role:owner")) {
-      availableRoles.push("owner");
-    }
-    if (userPermissions.includes("change_user_role:admin")) {
-      availableRoles.push("admin");
-    }
-    if (userPermissions.includes("change_user_role:member")) {
-      availableRoles.push("member");
-    }
-
-    return availableRoles;
-  }, [user]);
+  // Check specific permissions
+  const { hasPermission } = usePermission(currentUserRole);
+  const hasPermissionToInvite = hasPermission("invite_user_to_organization");
 
   return (
     <div
@@ -132,6 +106,7 @@ function ManageOrganizationMembers() {
                 role={member.role}
                 status={member.status}
                 hasPermissionToChangeRole={checkIfUserHasPermissionToChangeRole(
+                  user,
                   member.user_id,
                   member.role,
                 )}
