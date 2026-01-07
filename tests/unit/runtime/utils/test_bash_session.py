@@ -2,11 +2,12 @@ import os
 import tempfile
 import time
 
+import pytest
+
 from openhands.core.logger import openhands_logger as logger
 from openhands.events.action import CmdRunAction
 from openhands.runtime.utils.bash import BashCommandStatus, BashSession
 from openhands.runtime.utils.bash_constants import TIMEOUT_MESSAGE_TEMPLATE
-import pytest
 
 
 def get_no_change_timeout_suffix(timeout_seconds):
