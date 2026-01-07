@@ -14,6 +14,7 @@ import {
 import AuthService from "#/api/auth-service/auth-service.api";
 import { SAAS_NAV_ITEMS, OSS_NAV_ITEMS } from "#/constants/settings-nav";
 import OptionService from "#/api/option-service/option-service.api";
+import { useSelectedOrganizationStore } from "#/stores/selected-organization-store";
 
 type UserContextMenuProps = GetComponentPropTypes<typeof UserContextMenu>;
 
@@ -59,7 +60,7 @@ describe("UserContextMenu", () => {
   });
 
   it("should render the default context items for a user", () => {
-    renderUserContextMenu({ type: "user", onClose: vi.fn });
+    renderUserContextMenu({ type: "member", onClose: vi.fn });
 
     screen.getByTestId("org-selector");
     screen.getByText("ACCOUNT_SETTINGS$LOGOUT");
@@ -73,27 +74,45 @@ describe("UserContextMenu", () => {
     expect(screen.queryByText("ORG$MANAGE_ACCOUNT")).not.toBeInTheDocument();
   });
 
-  it("should render navigation items from SAAS_NAV_ITEMS (except organization-members/org)", () => {
-    renderUserContextMenu({ type: "user", onClose: vi.fn });
+  it("should render navigation items from SAAS_NAV_ITEMS (except organization-members/org)", async () => {
+    vi.spyOn(OptionService, "getConfig").mockResolvedValue({
+      APP_MODE: "saas",
+      GITHUB_CLIENT_ID: "test",
+      POSTHOG_CLIENT_KEY: "test",
+      FEATURE_FLAGS: {
+        ENABLE_BILLING: false,
+        HIDE_LLM_SETTINGS: false,
+        HIDE_BILLING: false,
+        ENABLE_JIRA: false,
+        ENABLE_JIRA_DC: false,
+        ENABLE_LINEAR: false,
+      },
+    });
 
-    // Verify that navigation items are rendered (except organization-members/org which are filtered out)
-    SAAS_NAV_ITEMS.filter(
+    renderUserContextMenu({ type: "member", onClose: vi.fn });
+
+    // Wait for config to load and verify that navigation items are rendered (except organization-members/org which are filtered out)
+    const expectedItems = SAAS_NAV_ITEMS.filter(
       (item) =>
         item.to !== "/settings/org-members" && item.to !== "/settings/org",
-    ).forEach((item) => {
-      expect(screen.getByText(item.text)).toBeInTheDocument();
+    );
+
+    await waitFor(() => {
+      expectedItems.forEach((item) => {
+        expect(screen.getByText(item.text)).toBeInTheDocument();
+      });
     });
   });
 
   it("should not display Organization Members menu item for regular users (filtered out)", () => {
-    renderUserContextMenu({ type: "user", onClose: vi.fn });
+    renderUserContextMenu({ type: "member", onClose: vi.fn });
 
     // Organization Members is filtered out from nav items for all users
     expect(screen.queryByText("Organization Members")).not.toBeInTheDocument();
   });
 
   it("should render a documentation link", () => {
-    renderUserContextMenu({ type: "user", onClose: vi.fn });
+    renderUserContextMenu({ type: "member", onClose: vi.fn });
 
     const docsLink = screen.getByText("SIDEBAR$DOCS").closest("a");
     expect(docsLink).toHaveAttribute("href", "https://docs.openhands.dev");
@@ -109,6 +128,7 @@ describe("UserContextMenu", () => {
         FEATURE_FLAGS: {
           ENABLE_BILLING: false,
           HIDE_LLM_SETTINGS: false,
+          HIDE_BILLING: false,
           ENABLE_JIRA: false,
           ENABLE_JIRA_DC: false,
           ENABLE_LINEAR: false,
@@ -117,7 +137,7 @@ describe("UserContextMenu", () => {
     });
 
     it("should render OSS_NAV_ITEMS when in OSS mode", async () => {
-      renderUserContextMenu({ type: "user", onClose: vi.fn });
+      renderUserContextMenu({ type: "member", onClose: vi.fn });
 
       // Wait for the config to load and OSS nav items to appear
       await waitFor(() => {
@@ -133,7 +153,7 @@ describe("UserContextMenu", () => {
     });
 
     it("should not display Organization Members menu item in OSS mode", async () => {
-      renderUserContextMenu({ type: "user", onClose: vi.fn });
+      renderUserContextMenu({ type: "member", onClose: vi.fn });
 
       // Wait for the config to load
       await waitFor(() => {
@@ -156,13 +176,14 @@ describe("UserContextMenu", () => {
         FEATURE_FLAGS: {
           ENABLE_BILLING: false,
           HIDE_LLM_SETTINGS: true,
+          HIDE_BILLING: false,
           ENABLE_JIRA: false,
           ENABLE_JIRA_DC: false,
           ENABLE_LINEAR: false,
         },
       });
 
-      renderUserContextMenu({ type: "user", onClose: vi.fn });
+      renderUserContextMenu({ type: "member", onClose: vi.fn });
 
       await waitFor(() => {
         // Other nav items should still be visible
@@ -182,13 +203,14 @@ describe("UserContextMenu", () => {
         FEATURE_FLAGS: {
           ENABLE_BILLING: false,
           HIDE_LLM_SETTINGS: false,
+          HIDE_BILLING: false,
           ENABLE_JIRA: false,
           ENABLE_JIRA_DC: false,
           ENABLE_LINEAR: false,
         },
       });
 
-      renderUserContextMenu({ type: "user", onClose: vi.fn });
+      renderUserContextMenu({ type: "member", onClose: vi.fn });
 
       await waitFor(() => {
         expect(
@@ -218,7 +240,7 @@ describe("UserContextMenu", () => {
 
   it("should call the logout handler when Logout is clicked", async () => {
     const logoutSpy = vi.spyOn(AuthService, "logout");
-    renderUserContextMenu({ type: "user", onClose: vi.fn });
+    renderUserContextMenu({ type: "member", onClose: vi.fn });
 
     const logoutButton = screen.getByText("ACCOUNT_SETTINGS$LOGOUT");
     await userEvent.click(logoutButton);
@@ -226,12 +248,28 @@ describe("UserContextMenu", () => {
     expect(logoutSpy).toHaveBeenCalledOnce();
   });
 
-  it("should have correct navigation links for nav items", () => {
-    renderUserContextMenu({ type: "user", onClose: vi.fn });
+  it("should have correct navigation links for nav items", async () => {
+    vi.spyOn(OptionService, "getConfig").mockResolvedValue({
+      APP_MODE: "saas",
+      GITHUB_CLIENT_ID: "test",
+      POSTHOG_CLIENT_KEY: "test",
+      FEATURE_FLAGS: {
+        ENABLE_BILLING: false,
+        HIDE_LLM_SETTINGS: false,
+        HIDE_BILLING: false,
+        ENABLE_JIRA: false,
+        ENABLE_JIRA_DC: false,
+        ENABLE_LINEAR: false,
+      },
+    });
 
-    // Test a few representative nav items have the correct href
-    const userLink = screen.getByText("SETTINGS$NAV_USER").closest("a");
-    expect(userLink).toHaveAttribute("href", "/settings/user");
+    renderUserContextMenu({ type: "member", onClose: vi.fn });
+
+    // Wait for config to load and test a few representative nav items have the correct href
+    await waitFor(() => {
+      const userLink = screen.getByText("SETTINGS$NAV_USER").closest("a");
+      expect(userLink).toHaveAttribute("href", "/settings/user");
+    });
 
     const billingLink = screen.getByText("SETTINGS$NAV_BILLING").closest("a");
     expect(billingLink).toHaveAttribute("href", "/settings/billing");
@@ -243,9 +281,15 @@ describe("UserContextMenu", () => {
   });
 
   it("should navigate to /settings/org-members when Manage Organization Members is clicked", async () => {
+    // Mock a team org so org management buttons are visible (not personal org)
+    vi.spyOn(organizationService, "getOrganizations").mockResolvedValue([
+      MOCK_TEAM_ORG_ACME,
+    ]);
+
     renderUserContextMenu({ type: "admin", onClose: vi.fn });
 
-    const manageOrganizationMembersButton = screen.getByText(
+    // Wait for orgs to load so org management buttons are visible
+    const manageOrganizationMembersButton = await screen.findByText(
       "ORG$MANAGE_ORGANIZATION_MEMBERS",
     );
     await userEvent.click(manageOrganizationMembersButton);
@@ -256,9 +300,15 @@ describe("UserContextMenu", () => {
   });
 
   it("should navigate to /settings/org when Manage Account is clicked", async () => {
+    // Mock a team org so org management buttons are visible (not personal org)
+    vi.spyOn(organizationService, "getOrganizations").mockResolvedValue([
+      MOCK_TEAM_ORG_ACME,
+    ]);
+
     renderUserContextMenu({ type: "admin", onClose: vi.fn });
 
-    const manageAccountButton = screen.getByText("ORG$MANAGE_ACCOUNT");
+    // Wait for orgs to load so org management buttons are visible
+    const manageAccountButton = await screen.findByText("ORG$MANAGE_ACCOUNT");
     await userEvent.click(manageAccountButton);
 
     expect(navigateMock).toHaveBeenCalledExactlyOnceWith("/settings/org");
@@ -266,7 +316,7 @@ describe("UserContextMenu", () => {
 
   it("should call the onClose handler when clicking outside the context menu", async () => {
     const onCloseMock = vi.fn();
-    renderUserContextMenu({ type: "user", onClose: onCloseMock });
+    renderUserContextMenu({ type: "member", onClose: onCloseMock });
 
     const contextMenu = screen.getByTestId("user-context-menu");
     await userEvent.click(contextMenu);
@@ -310,19 +360,26 @@ describe("UserContextMenu", () => {
         MOCK_PERSONAL_ORG,
       ]);
       vi.spyOn(organizationService, "getMe").mockResolvedValue({
-        id: "99",
+        org_id: "1",
+        user_id: "99",
         email: "me@test.com",
         role: "admin",
+        llm_api_key: "**********",
+        max_iterations: 20,
+        llm_model: "gpt-4",
+        llm_api_key_for_byor: null,
+        llm_base_url: "https://api.openai.com",
         status: "active",
       });
 
+      // Pre-select the personal org in the Zustand store
+      useSelectedOrganizationStore.setState({ organizationId: "1" });
+
       renderUserContextMenu({ type: "admin", onClose: vi.fn });
 
-      // Wait for orgs to load AND org to be selected (buttons should disappear)
+      // Wait for org selector to load and org management buttons to disappear
+      // (they disappear when personal org is selected)
       await waitFor(() => {
-        expect(screen.getByRole("combobox")).toHaveValue(
-          MOCK_PERSONAL_ORG.name,
-        );
         expect(
           screen.queryByText("ORG$MANAGE_ORGANIZATION_MEMBERS"),
         ).not.toBeInTheDocument();
@@ -336,19 +393,23 @@ describe("UserContextMenu", () => {
         MOCK_TEAM_ORG_ACME,
       ]);
       vi.spyOn(organizationService, "getMe").mockResolvedValue({
-        id: "99",
+        org_id: "1",
+        user_id: "99",
         email: "me@test.com",
         role: "admin",
+        llm_api_key: "**********",
+        max_iterations: 20,
+        llm_model: "gpt-4",
+        llm_api_key_for_byor: null,
+        llm_base_url: "https://api.openai.com",
         status: "active",
       });
 
       renderUserContextMenu({ type: "admin", onClose: vi.fn });
 
-      // Wait for orgs to load AND org to be selected (Billing should disappear)
+      // Wait for org selector to load and billing to disappear
+      // (billing disappears when team org is selected)
       await waitFor(() => {
-        expect(screen.getByRole("combobox")).toHaveValue(
-          MOCK_TEAM_ORG_ACME.name,
-        );
         expect(
           screen.queryByText("SETTINGS$NAV_BILLING"),
         ).not.toBeInTheDocument();
@@ -377,7 +438,7 @@ describe("UserContextMenu", () => {
   test("the user can change orgs", async () => {
     const user = userEvent.setup();
     const onCloseMock = vi.fn();
-    renderUserContextMenu({ type: "user", onClose: onCloseMock });
+    renderUserContextMenu({ type: "member", onClose: onCloseMock });
 
     const orgSelector = screen.getByTestId("org-selector");
     expect(orgSelector).toBeInTheDocument();

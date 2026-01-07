@@ -20,32 +20,14 @@ import { I18nKey } from "#/i18n/declaration";
 import { SAAS_NAV_ITEMS, OSS_NAV_ITEMS } from "#/constants/settings-nav";
 import { useConfig } from "#/hooks/query/use-config";
 import DocumentIcon from "#/icons/document.svg?react";
+import { Divider } from "#/ui/divider";
+import { ContextMenuListItem } from "../context-menu/context-menu-list-item";
 
-interface TempButtonProps {
-  start: React.ReactNode;
-  onClick: () => void;
-}
-
-function TempButton({
-  start,
-  children,
-  onClick,
-}: React.PropsWithChildren<TempButtonProps>) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-1 cursor-pointer hover:text-white w-full text-left"
-    >
-      {start}
-      {children}
-    </button>
-  );
-}
-
-function TempDivider() {
-  return <div className="h-[1px] w-full bg-[#5C5D62] my-1.5" />;
-}
+// Shared className for context menu list items in the user context menu
+// Removes default padding and hover background to match the simpler text-hover style
+const contextMenuListItemClassName = cn(
+  "flex items-center p-0 h-auto hover:bg-transparent hover:text-white gap-1",
+);
 
 interface UserContextMenuProps {
   type: OrganizationUserRole;
@@ -58,10 +40,10 @@ export function UserContextMenu({ type, onClose }: UserContextMenuProps) {
   const { mutate: logout } = useLogout();
   const { data: config } = useConfig();
   const { data: organizations } = useOrganizations();
-  const { orgId } = useSelectedOrganizationId();
+  const { organizationId } = useSelectedOrganizationId();
   const ref = useClickOutsideElement<HTMLDivElement>(onClose);
 
-  const selectedOrg = organizations?.find((org) => org.id === orgId);
+  const selectedOrg = organizations?.find((org) => org.id === organizationId);
   const isPersonalOrg = selectedOrg?.is_personal === true;
   // Team org = any org that is not explicitly marked as personal (includes undefined)
   const isTeamOrg = selectedOrg && !selectedOrg.is_personal;
@@ -83,7 +65,7 @@ export function UserContextMenu({ type, onClose }: UserContextMenuProps) {
   const [inviteMemberModalIsOpen, setInviteMemberModalIsOpen] =
     React.useState(false);
 
-  const isUser = type === "user";
+  const isMember = type === "member";
 
   const handleLogout = () => {
     logout();
@@ -130,33 +112,36 @@ export function UserContextMenu({ type, onClose }: UserContextMenuProps) {
           <OrgSelector />
         </div>
 
-        {!isUser && !isPersonalOrg && (
+        {!isMember && !isPersonalOrg && (
           <>
-            <TempButton
+            <ContextMenuListItem
               onClick={handleInviteMemberClick}
-              start={<IoPersonAddOutline className="text-white" size={14} />}
+              className={contextMenuListItemClassName}
             >
+              <IoPersonAddOutline className="text-white" size={14} />
               {t(I18nKey.ORG$INVITE_ORGANIZATION_MEMBER)}
-            </TempButton>
+            </ContextMenuListItem>
 
-            <TempDivider />
+            <Divider className="my-1.5" />
 
-            <TempButton
+            <ContextMenuListItem
               onClick={handleManageAccountClick}
-              start={<IoCardOutline className="text-white" size={14} />}
+              className={contextMenuListItemClassName}
             >
+              <IoCardOutline className="text-white" size={14} />
               {t(I18nKey.ORG$MANAGE_ACCOUNT)}
-            </TempButton>
-            <TempButton
+            </ContextMenuListItem>
+            <ContextMenuListItem
               onClick={handleManageOrganizationMembersClick}
-              start={<IoPersonOutline className="text-white" size={14} />}
+              className={contextMenuListItemClassName}
             >
+              <IoPersonOutline className="text-white" size={14} />
               {t(I18nKey.ORG$MANAGE_ORGANIZATION_MEMBERS)}
-            </TempButton>
+            </ContextMenuListItem>
           </>
         )}
 
-        <TempDivider />
+        <Divider className="my-1.5" />
 
         {navItems.map((item) => (
           <Link
@@ -174,7 +159,7 @@ export function UserContextMenu({ type, onClose }: UserContextMenuProps) {
           </Link>
         ))}
 
-        <TempDivider />
+        <Divider className="my-1.5" />
 
         <a
           href="https://docs.openhands.dev"
@@ -187,12 +172,13 @@ export function UserContextMenu({ type, onClose }: UserContextMenuProps) {
           {t(I18nKey.SIDEBAR$DOCS)}
         </a>
 
-        <TempButton
+        <ContextMenuListItem
           onClick={handleLogout}
-          start={<IoLogOutOutline className="text-white" size={14} />}
+          className={contextMenuListItemClassName}
         >
+          <IoLogOutOutline className="text-white" size={14} />
           {t(I18nKey.ACCOUNT_SETTINGS$LOGOUT)}
-        </TempButton>
+        </ContextMenuListItem>
       </div>
     </div>
   );

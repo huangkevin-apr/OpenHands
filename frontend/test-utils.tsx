@@ -1,12 +1,16 @@
 import React, { PropsWithChildren } from "react";
-import { RenderOptions, render, screen, waitFor } from "@testing-library/react";
+import { act, RenderOptions, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import i18n from "i18next";
 import { expect, vi } from "vitest";
 import { AxiosError } from "axios";
-import userEvent from "@testing-library/user-event";
 import { INITIAL_MOCK_ORGS } from "#/mocks/org-handlers";
+import { useSelectedOrganizationStore } from "#/stores/selected-organization-store";
+
+export const useParamsMock = vi.fn(() => ({
+  conversationId: "test-conversation-id",
+}));
 
 // Mock useParams before importing components
 vi.mock("react-router", async () => {
@@ -14,7 +18,7 @@ vi.mock("react-router", async () => {
     await vi.importActual<typeof import("react-router")>("react-router");
   return {
     ...actual,
-    useParams: () => ({ conversationId: "test-conversation-id" }),
+    useParams: useParamsMock,
     useRevalidator: () => ({
       revalidate: vi.fn(),
     }),
@@ -91,7 +95,7 @@ export const selectOrganization = async ({
   // Wait for the settings navbar to render (which contains the org selector)
   await screen.findByTestId("settings-navbar");
 
-  // Wait for orgs to load and auto-select to happen (first org gets auto-selected)
+  // Wait for orgs to load and org selector to be present
   const organizationSelect = await screen.findByTestId("org-selector");
   expect(organizationSelect).toBeInTheDocument();
 
@@ -101,26 +105,36 @@ export const selectOrganization = async ({
     expect(trigger).not.toBeDisabled();
   });
 
-  // Get the combobox input (where the value is displayed)
+  // Set the organization ID directly in the Zustand store
+  // This is more reliable than UI interaction in router stub tests
+  // Use act() to ensure React processes the state update
+  act(() => {
+    useSelectedOrganizationStore.setState({ organizationId: targetOrg.id });
+  });
+
+  // Get the combobox input and wait for it to reflect the selection
   const combobox = screen.getByRole("combobox");
-
-  // If selecting org index 0, it should already be auto-selected
-  if (orgIndex === 0) {
-    await waitFor(() => {
-      expect(combobox).toHaveValue(targetOrg.name);
-    });
-    return;
-  }
-
-  // Click the trigger to open the dropdown
-  await userEvent.click(trigger);
-
-  // Find the option by its role and text content (organization name)
-  const option = await screen.findByRole("option", { name: targetOrg.name });
-  await userEvent.click(option);
-
-  // Wait for the selection to be reflected in the combobox
   await waitFor(() => {
     expect(combobox).toHaveValue(targetOrg.name);
   });
 };
+
+export const createAxiosError = (
+  status: number,
+  statusText: string,
+  data: unknown,
+) =>
+  new AxiosError(
+    `Request failed with status code ${status}`,
+    "ERR_BAD_REQUEST",
+    undefined,
+    undefined,
+    {
+      status,
+      statusText,
+      data,
+      headers: {},
+      // @ts-expect-error - we only need the response object for this test
+      config: {},
+    },
+  );

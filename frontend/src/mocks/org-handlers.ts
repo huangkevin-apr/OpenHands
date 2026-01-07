@@ -3,11 +3,17 @@ import {
   Organization,
   OrganizationMember,
   OrganizationUserRole,
+  UpdateOrganizationMemberParams,
 } from "#/types/org";
 
-const MOCK_ME: Omit<OrganizationMember, "role"> = {
-  id: "99",
+const MOCK_ME: Omit<OrganizationMember, "role" | "org_id"> = {
+  user_id: "99",
   email: "me@acme.org",
+  llm_api_key: "**********",
+  max_iterations: 20,
+  llm_model: "gpt-4",
+  llm_api_key_for_byor: null,
+  llm_base_url: "https://api.openai.com",
   status: "active",
 };
 
@@ -78,75 +84,141 @@ export const INITIAL_MOCK_ORGS: Organization[] = [
 const INITIAL_MOCK_MEMBERS: Record<string, OrganizationMember[]> = {
   "1": [
     {
-      id: "99",
+      org_id: "1",
+      user_id: "99",
       email: "me@acme.org",
       role: "owner",
+      llm_api_key: "**********",
+      max_iterations: 20,
+      llm_model: "gpt-4",
+      llm_api_key_for_byor: null,
+      llm_base_url: "https://api.openai.com",
       status: "active",
     },
   ],
   "2": [
     {
-      id: "1",
+      org_id: "2",
+      user_id: "1",
       email: "alice@acme.org",
       role: "owner",
+      llm_api_key: "**********",
+      max_iterations: 20,
+      llm_model: "gpt-4",
+      llm_api_key_for_byor: null,
+      llm_base_url: "https://api.openai.com",
       status: "active",
     },
     {
-      id: "2",
+      org_id: "1",
+      user_id: "2",
       email: "bob@acme.org",
       role: "admin",
+      llm_api_key: "**********",
+      max_iterations: 20,
+      llm_model: "gpt-4",
+      llm_api_key_for_byor: null,
+      llm_base_url: "https://api.openai.com",
       status: "active",
     },
     {
-      id: "3",
+      org_id: "1",
+      user_id: "3",
       email: "charlie@acme.org",
-      role: "user",
+      role: "member",
+      llm_api_key: "**********",
+      max_iterations: 20,
+      llm_model: "gpt-4",
+      llm_api_key_for_byor: null,
+      llm_base_url: "https://api.openai.com",
       status: "active",
     },
   ],
   "3": [
     {
-      id: "4",
+      org_id: "2",
+      user_id: "4",
       email: "tony@gamma.org",
-      role: "user",
+      role: "member",
+      llm_api_key: "**********",
+      max_iterations: 20,
+      llm_model: "gpt-4",
+      llm_api_key_for_byor: null,
+      llm_base_url: "https://api.openai.com",
       status: "active",
     },
     {
-      id: "5",
+      org_id: "2",
+      user_id: "5",
       email: "evan@gamma.org",
       role: "admin",
+      llm_api_key: "**********",
+      max_iterations: 20,
+      llm_model: "gpt-4",
+      llm_api_key_for_byor: null,
+      llm_base_url: "https://api.openai.com",
       status: "active",
     },
   ],
   "4": [
     {
-      id: "6",
+      org_id: "3",
+      user_id: "6",
       email: "robert@all-hands.dev",
       role: "owner",
+      llm_api_key: "**********",
+      max_iterations: 20,
+      llm_model: "gpt-4",
+      llm_api_key_for_byor: null,
+      llm_base_url: "https://api.openai.com",
       status: "active",
     },
     {
-      id: "7",
+      org_id: "3",
+      user_id: "7",
       email: "ray@all-hands.dev",
       role: "admin",
+      llm_api_key: "**********",
+      max_iterations: 20,
+      llm_model: "gpt-4",
+      llm_api_key_for_byor: null,
+      llm_base_url: "https://api.openai.com",
       status: "active",
     },
     {
-      id: "8",
+      org_id: "3",
+      user_id: "8",
       email: "chuck@all-hands.dev",
-      role: "user",
+      role: "member",
+      llm_api_key: "**********",
+      max_iterations: 20,
+      llm_model: "gpt-4",
+      llm_api_key_for_byor: null,
+      llm_base_url: "https://api.openai.com",
       status: "active",
     },
     {
-      id: "9",
+      org_id: "3",
+      user_id: "9",
       email: "stephan@all-hands.dev",
-      role: "user",
+      role: "member",
+      llm_api_key: "**********",
+      max_iterations: 20,
+      llm_model: "gpt-4",
+      llm_api_key_for_byor: null,
+      llm_base_url: "https://api.openai.com",
       status: "active",
     },
     {
-      id: "10",
+      org_id: "3",
+      user_id: "10",
       email: "tim@all-hands.dev",
-      role: "user",
+      role: "member",
+      llm_api_key: "**********",
+      max_iterations: 20,
+      llm_model: "gpt-4",
+      llm_api_key_for_byor: null,
+      llm_base_url: "https://api.openai.com",
       status: "invited",
     },
   ],
@@ -171,7 +243,7 @@ export const resetOrgMockData = () => {
 
 export const resetOrgsAndMembersMockData = () => {
   // Reset ORGS_AND_MEMBERS to initial state
-  // Note: This is needed since ORGS_AND_MEMBERS is mutated by updateMemberRole
+  // Note: This is needed since ORGS_AND_MEMBERS is mutated by updateMember
   Object.keys(INITIAL_MOCK_MEMBERS).forEach((orgId) => {
     ORGS_AND_MEMBERS[orgId] = INITIAL_MOCK_MEMBERS[orgId].map((member) => ({
       ...member,
@@ -189,7 +261,7 @@ export const ORG_HANDLERS = [
       );
     }
 
-    let role: OrganizationUserRole = "user";
+    let role: OrganizationUserRole = "member";
     switch (orgId) {
       case "1": // Personal Workspace
         role = "owner";
@@ -198,17 +270,18 @@ export const ORG_HANDLERS = [
         role = "owner";
         break;
       case "3": // Beta LLC
-        role = "user";
+        role = "member";
         break;
       case "4": // All Hands AI
         role = "admin";
         break;
       default:
-        role = "user";
+        role = "member";
     }
 
     const me: OrganizationMember = {
       ...MOCK_ME,
+      org_id: orgId,
       role,
     };
     return HttpResponse.json(me);
@@ -316,13 +389,12 @@ export const ORG_HANDLERS = [
   }),
 
   http.patch(
-    "/api/organizations/:orgId/members",
+    "/api/organizations/:orgId/members/:userId",
     async ({ request, params }) => {
-      const { userId, role } = (await request.json()) as {
-        userId: string;
-        role: OrganizationUserRole;
-      };
+      const updateData =
+        (await request.json()) as UpdateOrganizationMemberParams;
       const orgId = params.orgId?.toString();
+      const userId = params.userId?.toString();
 
       if (!orgId || !ORGS_AND_MEMBERS[orgId]) {
         return HttpResponse.json(
@@ -331,7 +403,7 @@ export const ORG_HANDLERS = [
         );
       }
 
-      const member = ORGS_AND_MEMBERS[orgId].find((m) => m.id === userId);
+      const member = ORGS_AND_MEMBERS[orgId].find((m) => m.user_id === userId);
       if (!member) {
         return HttpResponse.json(
           { error: "Member not found" },
@@ -339,17 +411,17 @@ export const ORG_HANDLERS = [
         );
       }
 
-      // replace
+      // Update member with any provided fields
       const newMember: OrganizationMember = {
         ...member,
-        role,
+        ...updateData,
       };
       const newMembers = ORGS_AND_MEMBERS[orgId].map((m) =>
-        m.id === userId ? newMember : m,
+        m.user_id === userId ? newMember : m,
       );
       ORGS_AND_MEMBERS[orgId] = newMembers;
 
-      return HttpResponse.json(member, { status: 200 });
+      return HttpResponse.json(newMember, { status: 200 });
     },
   ),
 
@@ -365,7 +437,9 @@ export const ORG_HANDLERS = [
 
     // Remove member from organization
     const members = ORGS_AND_MEMBERS[orgId as string];
-    const updatedMembers = members.filter((member) => member.id !== userId);
+    const updatedMembers = members.filter(
+      (member) => member.user_id !== userId,
+    );
     ORGS_AND_MEMBERS[orgId as string] = updatedMembers;
 
     return HttpResponse.json({ message: "Member removed" }, { status: 200 });
@@ -392,10 +466,16 @@ export const ORG_HANDLERS = [
       }
 
       const members = Array.from(ORGS_AND_MEMBERS[orgId]);
-      const newMembers = emails.map((email, index) => ({
-        id: String(members.length + index + 1),
+      const newMembers: OrganizationMember[] = emails.map((email, index) => ({
+        org_id: orgId,
+        user_id: String(members.length + index + 1),
         email,
-        role: "user" as const,
+        role: "member" as const,
+        llm_api_key: "**********",
+        max_iterations: 20,
+        llm_model: "gpt-4",
+        llm_api_key_for_byor: null,
+        llm_base_url: "https://api.openai.com",
         status: "invited" as const,
       }));
 

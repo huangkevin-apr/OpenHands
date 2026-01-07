@@ -10,17 +10,12 @@ import { useMe } from "#/hooks/query/use-me";
 import { useOrganizations } from "#/hooks/query/use-organizations";
 import { useConfig } from "#/hooks/query/use-config";
 import { OrgSelector } from "../org/org-selector";
-
-interface NavigationItem {
-  to: string;
-  icon: React.ReactNode;
-  text: string;
-}
+import { SettingsNavItem } from "#/constants/settings-nav";
 
 interface SettingsNavigationProps {
   isMobileMenuOpen: boolean;
   onCloseMobileMenu: () => void;
-  navigationItems: NavigationItem[];
+  navigationItems: SettingsNavItem[];
 }
 
 export function SettingsNavigation({
@@ -28,18 +23,18 @@ export function SettingsNavigation({
   onCloseMobileMenu,
   navigationItems,
 }: SettingsNavigationProps) {
-  const { orgId } = useSelectedOrganizationId();
+  const { organizationId } = useSelectedOrganizationId();
   const { data: me } = useMe();
   const { data: organizations } = useOrganizations();
   const { data: config } = useConfig();
 
   const { t } = useTranslation();
 
-  const selectedOrg = organizations?.find((org) => org.id === orgId);
+  const selectedOrg = organizations?.find((org) => org.id === organizationId);
   const isPersonalOrg = selectedOrg?.is_personal === true;
   // Team org = any org that is not explicitly marked as personal (includes undefined)
   const isTeamOrg = selectedOrg && !selectedOrg.is_personal;
-  const isUser = me?.role === "user";
+  const isUser = me?.role === "member";
 
   return (
     <>
@@ -50,7 +45,6 @@ export function SettingsNavigation({
           onClick={onCloseMobileMenu}
         />
       )}
-
       {/* Navigation sidebar */}
       <nav
         data-testid="settings-navbar"
@@ -76,7 +70,7 @@ export function SettingsNavigation({
           <button
             type="button"
             onClick={onCloseMobileMenu}
-            className="md:hidden p-0.5 hover:bg-[#454545] rounded-md transition-colors cursor-pointer"
+            className="md:hidden p-0.5 hover:bg-tertiary rounded-md transition-colors cursor-pointer"
             aria-label="Close navigation menu"
           >
             <CloseIcon width={32} height={32} />
@@ -86,7 +80,8 @@ export function SettingsNavigation({
         <div className="flex flex-col gap-2">
           {navigationItems
             .filter((navItem) => {
-              const canViewOrgRoutes = !isUser && !!orgId && !isPersonalOrg;
+              const canViewOrgRoutes =
+                !isUser && !!organizationId && !isPersonalOrg;
               const routeVisibility: Record<string, boolean> = {
                 "/settings/org-members": canViewOrgRoutes,
                 "/settings/org": canViewOrgRoutes,
@@ -103,8 +98,8 @@ export function SettingsNavigation({
                 onClick={onCloseMobileMenu}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-3 p-1 sm:px-[14px] sm:py-2 rounded-md transition-colors",
-                    isActive ? "bg-[#454545]" : "hover:bg-[#454545]",
+                    "flex items-center gap-3 p-1 sm:px-3.5 sm:py-2 rounded-md transition-colors",
+                    isActive ? "bg-tertiary" : "hover:bg-tertiary",
                   )
                 }
               >

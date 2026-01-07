@@ -1,4 +1,4 @@
-export type OrganizationUserRole = "user" | "admin" | "owner";
+export type OrganizationUserRole = "member" | "admin" | "owner";
 
 export interface Organization {
   id: string;
@@ -34,8 +34,19 @@ export interface Organization {
 }
 
 export interface OrganizationMember {
-  id: string;
+  org_id: string;
+  user_id: string;
   email: string;
   role: OrganizationUserRole;
-  status: "active" | "invited";
+  llm_api_key: string;
+  max_iterations: number;
+  llm_model: string;
+  llm_api_key_for_byor: string | null;
+  llm_base_url: string;
+  status: "active" | "invited" | "inactive";
 }
+
+/** org_id and user_id are provided via URL params */
+export type UpdateOrganizationMemberParams = Partial<
+  Omit<OrganizationMember, "org_id" | "user_id">
+>;

@@ -7,23 +7,23 @@ import { Dropdown } from "#/ui/dropdown/dropdown";
 
 export function OrgSelector() {
   const { t } = useTranslation();
-  const { orgId, setOrgId } = useSelectedOrganizationId();
+  const { organizationId, setOrganizationId } = useSelectedOrganizationId();
   const { data: organizations, isLoading } = useOrganizations();
 
   // Auto-select the first organization when data loads and no org is selected
   React.useEffect(() => {
-    if (!orgId && organizations && organizations.length > 0) {
-      setOrgId(organizations[0].id);
+    if (!organizationId && organizations && organizations.length > 0) {
+      setOrganizationId(organizations[0].id);
     }
-  }, [orgId, organizations, setOrgId]);
+  }, [organizationId, organizations, setOrganizationId]);
 
   const selectedOrg = React.useMemo(() => {
-    if (orgId) {
-      return organizations?.find((org) => org.id === orgId);
+    if (organizationId) {
+      return organizations?.find((org) => org.id === organizationId);
     }
 
     return organizations?.[0];
-  }, [orgId, organizations]);
+  }, [organizationId, organizations]);
 
   return (
     <Dropdown
@@ -34,7 +34,7 @@ export function OrgSelector() {
         value: selectedOrg?.id || "",
       }}
       onChange={(item) => {
-        setOrgId(item ? item.value : null);
+        setOrganizationId(item ? item.value : null);
       }}
       placeholder={t(I18nKey.ORG$SELECT_ORGANIZATION_PLACEHOLDER)}
       loading={isLoading}

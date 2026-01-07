@@ -6,6 +6,7 @@ import SettingsScreen, { clientLoader } from "#/routes/settings";
 import OptionService from "#/api/option-service/option-service.api";
 import { organizationService } from "#/api/organization-service/organization-service.api";
 import { MOCK_PERSONAL_ORG, MOCK_TEAM_ORG_ACME } from "#/mocks/org-handlers";
+import { useSelectedOrganizationStore } from "#/stores/selected-organization-store";
 
 // Mock the i18next hook
 vi.mock("react-i18next", async () => {
@@ -24,6 +25,7 @@ vi.mock("react-i18next", async () => {
           SETTINGS$NAV_SECRETS: "Secrets",
           SETTINGS$NAV_MCP: "MCP",
           SETTINGS$NAV_USER: "User",
+          SETTINGS$NAV_BILLING: "Billing",
           SETTINGS$TITLE: "Settings",
         };
         return translations[key] || key;
@@ -62,6 +64,10 @@ describe("Settings Screen", () => {
         {
           Component: () => <div data-testid="llm-settings-screen" />,
           path: "/settings",
+        },
+        {
+          Component: () => <div data-testid="user-settings-screen" />,
+          path: "/settings/user",
         },
         {
           Component: () => <div data-testid="git-settings-screen" />,
@@ -211,9 +217,15 @@ describe("Settings Screen", () => {
         MOCK_PERSONAL_ORG,
       ]);
       vi.spyOn(organizationService, "getMe").mockResolvedValue({
-        id: "99",
+        org_id: "1",
+        user_id: "99",
         email: "me@test.com",
         role: "admin",
+        llm_api_key: "**********",
+        max_iterations: 20,
+        llm_model: "gpt-4",
+        llm_api_key_for_byor: null,
+        llm_base_url: "https://api.openai.com",
         status: "active",
       });
 
@@ -234,14 +246,23 @@ describe("Settings Screen", () => {
       // Set up SaaS mode (which has Billing in nav items)
       mockQueryClient.clear();
       mockQueryClient.setQueryData(["config"], { APP_MODE: "saas" });
+      // Pre-select the team org in the query client and Zustand store
+      mockQueryClient.setQueryData(["organizations"], [MOCK_TEAM_ORG_ACME]);
+      useSelectedOrganizationStore.setState({ organizationId: "2" });
 
       vi.spyOn(organizationService, "getOrganizations").mockResolvedValue([
         MOCK_TEAM_ORG_ACME,
       ]);
       vi.spyOn(organizationService, "getMe").mockResolvedValue({
-        id: "99",
+        org_id: "2",
+        user_id: "99",
         email: "me@test.com",
         role: "admin",
+        llm_api_key: "**********",
+        max_iterations: 20,
+        llm_model: "gpt-4",
+        llm_api_key_for_byor: null,
+        llm_base_url: "https://api.openai.com",
         status: "active",
       });
 
@@ -266,9 +287,15 @@ describe("Settings Screen", () => {
         MOCK_PERSONAL_ORG,
       ]);
       vi.spyOn(organizationService, "getMe").mockResolvedValue({
-        id: "99",
+        org_id: "1",
+        user_id: "99",
         email: "me@test.com",
         role: "admin",
+        llm_api_key: "**********",
+        max_iterations: 20,
+        llm_model: "gpt-4",
+        llm_api_key_for_byor: null,
+        llm_base_url: "https://api.openai.com",
         status: "active",
       });
 
@@ -291,9 +318,15 @@ describe("Settings Screen", () => {
         MOCK_PERSONAL_ORG,
       ]);
       vi.spyOn(organizationService, "getMe").mockResolvedValue({
-        id: "99",
+        org_id: "1",
+        user_id: "99",
         email: "me@test.com",
         role: "admin",
+        llm_api_key: "**********",
+        max_iterations: 20,
+        llm_model: "gpt-4",
+        llm_api_key_for_byor: null,
+        llm_base_url: "https://api.openai.com",
         status: "active",
       });
 
@@ -316,9 +349,15 @@ describe("Settings Screen", () => {
         MOCK_TEAM_ORG_ACME,
       ]);
       vi.spyOn(organizationService, "getMe").mockResolvedValue({
-        id: "99",
+        org_id: "1",
+        user_id: "99",
         email: "me@test.com",
         role: "admin",
+        llm_api_key: "**********",
+        max_iterations: 20,
+        llm_model: "gpt-4",
+        llm_api_key_for_byor: null,
+        llm_base_url: "https://api.openai.com",
         status: "active",
       });
 
@@ -330,6 +369,87 @@ describe("Settings Screen", () => {
           screen.queryByTestId("billing-settings-screen"),
         ).not.toBeInTheDocument();
       });
+    });
+  });
+
+  describe("HIDE_BILLING feature flag", () => {
+    it("should hide billing navigation item when HIDE_BILLING is true", async () => {
+      // Arrange
+      const getConfigSpy = vi.spyOn(OptionService, "getConfig");
+      getConfigSpy.mockResolvedValue({
+        APP_MODE: "saas",
+        GITHUB_CLIENT_ID: "test",
+        POSTHOG_CLIENT_KEY: "test",
+        FEATURE_FLAGS: {
+          ENABLE_BILLING: false,
+          HIDE_LLM_SETTINGS: false,
+          HIDE_BILLING: true,
+          ENABLE_JIRA: false,
+          ENABLE_JIRA_DC: false,
+          ENABLE_LINEAR: false,
+        },
+      });
+
+      mockQueryClient.clear();
+
+      // Act
+      renderSettingsScreen();
+
+      // Assert
+      const navbar = await screen.findByTestId("settings-navbar");
+      expect(within(navbar).queryByText("Billing")).not.toBeInTheDocument();
+
+      getConfigSpy.mockRestore();
+    });
+
+    it("should show billing navigation item when HIDE_BILLING is false", async () => {
+      // Arrange
+      const getConfigSpy = vi.spyOn(OptionService, "getConfig");
+      getConfigSpy.mockResolvedValue({
+        APP_MODE: "saas",
+        GITHUB_CLIENT_ID: "test",
+        POSTHOG_CLIENT_KEY: "test",
+        FEATURE_FLAGS: {
+          ENABLE_BILLING: false,
+          HIDE_LLM_SETTINGS: false,
+          HIDE_BILLING: false,
+          ENABLE_JIRA: false,
+          ENABLE_JIRA_DC: false,
+          ENABLE_LINEAR: false,
+        },
+      });
+
+      mockQueryClient.clear();
+      // Set up personal org (billing is only shown for personal orgs, not team orgs)
+      mockQueryClient.setQueryData(["organizations"], [MOCK_PERSONAL_ORG]);
+      useSelectedOrganizationStore.setState({ organizationId: "1" });
+
+      vi.spyOn(organizationService, "getOrganizations").mockResolvedValue([
+        MOCK_PERSONAL_ORG,
+      ]);
+      vi.spyOn(organizationService, "getMe").mockResolvedValue({
+        org_id: "1",
+        user_id: "99",
+        email: "me@test.com",
+        role: "admin",
+        llm_api_key: "**********",
+        max_iterations: 20,
+        llm_model: "gpt-4",
+        llm_api_key_for_byor: null,
+        llm_base_url: "https://api.openai.com",
+        status: "active",
+      });
+
+      // Act
+      renderSettingsScreen();
+
+      // Assert
+      const navbar = await screen.findByTestId("settings-navbar");
+      await waitFor(() => {
+        expect(within(navbar).getByText("Billing")).toBeInTheDocument();
+      });
+
+      getConfigSpy.mockRestore();
     });
   });
 });
