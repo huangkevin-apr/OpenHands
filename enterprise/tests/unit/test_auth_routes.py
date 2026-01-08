@@ -706,6 +706,7 @@ async def test_keycloak_callback_domain_blocking_inactive(mock_request):
         mock_user_store.create_user = AsyncMock(return_value=mock_user)
 
         mock_domain_blocker.is_active.return_value = False
+        mock_domain_blocker.is_domain_blocked.return_value = False
 
         mock_verifier.is_active.return_value = True
         mock_verifier.is_user_allowed.return_value = True
