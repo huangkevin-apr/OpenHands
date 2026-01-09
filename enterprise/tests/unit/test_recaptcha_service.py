@@ -10,7 +10,7 @@ from server.auth.recaptcha_service import AssessmentResult, RecaptchaService
 
 @pytest.fixture
 def mock_gcp_client():
-    """Mock GCP reCAPTCHA Enterprise client."""
+    """Mock GCP reCAPTCHA Enterprise client!"""
     with patch(
         'server.auth.recaptcha_service.recaptchaenterprise_v1.RecaptchaEnterpriseServiceClient'
     ) as mock_client_class:
