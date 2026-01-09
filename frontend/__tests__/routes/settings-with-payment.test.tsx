@@ -5,24 +5,27 @@ import { createRoutesStub } from "react-router";
 import { renderWithProviders } from "test-utils";
 import SettingsScreen from "#/routes/settings";
 import { PaymentForm } from "#/components/features/payment/payment-form";
+import { QueryClient } from "@tanstack/react-query";
+import { OrganizationMember } from "#/types/org";
+import { getActiveOrganizationUser } from "#/utils/org/permission-checks";
+
+let queryClient: QueryClient;
 
 // Mock the useSettings hook
 vi.mock("#/hooks/query/use-settings", async () => {
-  const actual = await vi.importActual<
-    typeof import("#/hooks/query/use-settings")
-  >("#/hooks/query/use-settings");
+  const actual = await vi.importActual<typeof import("#/hooks/query/use-settings")>(
+    "#/hooks/query/use-settings"
+  );
   return {
     ...actual,
     useSettings: vi.fn().mockReturnValue({
-      data: {
-        EMAIL_VERIFIED: true, // Mock email as verified to prevent redirection
-      },
+      data: { EMAIL_VERIFIED: true },
       isLoading: false,
     }),
   };
 });
 
-// Mock the i18next hook
+// Mock the i18next
 vi.mock("react-i18next", async () => {
   const actual =
     await vi.importActual<typeof import("react-i18next")>("react-i18next");
@@ -51,6 +54,15 @@ vi.mock("react-i18next", async () => {
   };
 });
 
+// Mock permission checks
+vi.mock("#/utils/org/permission-checks", () => ({
+  getActiveOrganizationUser: vi.fn(),
+}));
+vi.mocked(getActiveOrganizationUser).mockResolvedValue({
+  user_id: "u1",
+  role: "admin",
+} as OrganizationMember);
+
 // Mock useConfig hook
 const { mockUseConfig } = vi.hoisted(() => ({
   mockUseConfig: vi.fn(),
@@ -60,6 +72,33 @@ vi.mock("#/hooks/query/use-config", () => ({
 }));
 
 describe("Settings Billing", () => {
+  beforeEach(() => {
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    vi.restoreAllMocks();
+
+    // Seed initial config
+    queryClient.setQueryData(["config"], {
+      APP_MODE: "oss",
+      FEATURE_FLAGS: { ENABLE_BILLING: false, HIDE_LLM_SETTINGS: false },
+    });
+
+    // Mock settings nav items based on current queryClient
+    vi.mock("#/hooks/use-settings-nav-items", () => ({
+      useSettingsNavItems: () => {
+        const config = queryClient.getQueryData<{ APP_MODE: string; FEATURE_FLAGS?: any }>(["config"]);
+        const isSaas = config?.APP_MODE === "saas";
+
+        const items = [
+          { to: "/settings/user", text: "User" },
+          ...(isSaas ? [{ to: "/settings/billing", text: "Billing" }] : []),
+          { to: "/settings/integrations", text: "Integrations" },
+        ];
+
+        return items;
+      },
+    }));
+  });
+
   beforeEach(() => {
     // Set default config to OSS mode
     mockUseConfig.mockReturnValue({
@@ -101,11 +140,23 @@ describe("Settings Billing", () => {
   ]);
 
   const renderSettingsScreen = () =>
-    renderWithProviders(<RoutesStub initialEntries={["/settings/billing"]} />);
+    (renderWithProviders as unknown as (
+      ui: React.ReactElement,
+      options: { queryClient: QueryClient }
+    ) => ReturnType<typeof renderWithProviders>)(
+      <RoutesStub initialEntries={["/settings"]} />,
+      { queryClient }
+    );
 
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
+  const seedConfig = (overrides = {}) => {
+    queryClient.setQueryData(["config"], {
+      APP_MODE: "saas",
+      FEATURE_FLAGS: { ENABLE_BILLING: true, HIDE_LLM_SETTINGS: false },
+      ...overrides,
+    });
+  };
+
+  afterEach(() => vi.clearAllMocks());
 
   it("should not render the billing tab if OSS mode", async () => {
     // OSS mode is set by default in beforeEach
@@ -116,46 +167,24 @@ describe("Settings Billing", () => {
     expect(credits).not.toBeInTheDocument();
   });
 
-  it("should render the billing tab if SaaS mode and billing is enabled", async () => {
-    mockUseConfig.mockReturnValue({
-      data: {
-        APP_MODE: "saas",
-        GITHUB_CLIENT_ID: "123",
-        POSTHOG_CLIENT_KEY: "456",
-        FEATURE_FLAGS: {
-          ENABLE_BILLING: true,
-          HIDE_LLM_SETTINGS: false,
-          ENABLE_JIRA: false,
-          ENABLE_JIRA_DC: false,
-          ENABLE_LINEAR: false,
-        },
-      },
-      isLoading: false,
-    });
+  it("shows Billing for admin in SaaS mode", async () => {
+    vi.mocked(getActiveOrganizationUser).mockResolvedValue({
+      user_id: "u1",
+      role: "admin",
+    } as OrganizationMember);
+
+    seedConfig(); // Ensure SaaS mode
 
     renderSettingsScreen();
 
     const navbar = await screen.findByTestId("settings-navbar");
-    within(navbar).getByText("Billing");
+    const billingLink = within(navbar).getByRole("link", { name: /billing/i });
+    expect(billingLink).toBeInTheDocument();
   });
 
   it("should render the billing settings if clicking the billing item", async () => {
     const user = userEvent.setup();
-    mockUseConfig.mockReturnValue({
-      data: {
-        APP_MODE: "saas",
-        GITHUB_CLIENT_ID: "123",
-        POSTHOG_CLIENT_KEY: "456",
-        FEATURE_FLAGS: {
-          ENABLE_BILLING: true,
-          HIDE_LLM_SETTINGS: false,
-          ENABLE_JIRA: false,
-          ENABLE_JIRA_DC: false,
-          ENABLE_LINEAR: false,
-        },
-      },
-      isLoading: false,
-    });
+    seedConfig(); // Ensure SaaS mode
 
     renderSettingsScreen();
 

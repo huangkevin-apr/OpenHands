@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import LlmSettingsScreen from "#/routes/llm-settings";
 import SettingsService from "#/api/settings-service/settings-service.api";
 import {
@@ -11,12 +12,17 @@ import {
 import * as AdvancedSettingsUtlls from "#/utils/has-advanced-settings-set";
 import * as ToastHandlers from "#/utils/custom-toast-handlers";
 import OptionService from "#/api/option-service/option-service.api";
+import * as useMeModule from "#/hooks/query/use-me";
 
 // Mock react-router hooks
 const mockUseSearchParams = vi.fn();
-vi.mock("react-router", () => ({
-  useSearchParams: () => mockUseSearchParams(),
-}));
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
+  return {
+    ...actual,
+    useSearchParams: () => mockUseSearchParams(),
+  };
+});
 
 // Mock useIsAuthed hook
 const mockUseIsAuthed = vi.fn();
@@ -24,14 +30,23 @@ vi.mock("#/hooks/query/use-is-authed", () => ({
   useIsAuthed: () => mockUseIsAuthed(),
 }));
 
-const renderLlmSettingsScreen = () =>
-  render(<LlmSettingsScreen />, {
-    wrapper: ({ children }) => (
-      <QueryClientProvider client={new QueryClient()}>
-        {children}
-      </QueryClientProvider>
-    ),
-  });
+export const renderLlmSettingsScreen = () => {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/",
+        element: <LlmSettingsScreen />,
+      },
+    ],
+    { initialEntries: ["/"] }
+  );
+
+  return render(
+    <QueryClientProvider client={new QueryClient()}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  );
+};
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -47,6 +62,17 @@ beforeEach(() => {
 
   // Default mock for useIsAuthed - returns authenticated by default
   mockUseIsAuthed.mockReturnValue({ data: true, isLoading: false });
+
+  // Default mock for useMe
+  vi.spyOn(useMeModule, "useMe").mockReturnValue({
+    data: { role: "admin" },
+    status: "success",
+    isLoading: false,
+    isError: false,
+    isSuccess: true,
+    refetch: vi.fn(),
+    error: null,
+  } as any);
 });
 
 describe("Content", () => {
@@ -55,11 +81,11 @@ describe("Content", () => {
       renderLlmSettingsScreen();
       await screen.findByTestId("llm-settings-screen");
 
-      const basicFom = screen.getByTestId("llm-settings-form-basic");
-      within(basicFom).getByTestId("llm-provider-input");
-      within(basicFom).getByTestId("llm-model-input");
-      within(basicFom).getByTestId("llm-api-key-input");
-      within(basicFom).getByTestId("llm-api-key-help-anchor");
+      const basicForm = screen.getByTestId("llm-settings-form-basic");
+      within(basicForm).getByTestId("llm-provider-input");
+      within(basicForm).getByTestId("llm-model-input");
+      within(basicForm).getByTestId("llm-api-key-input");
+      within(basicForm).getByTestId("llm-api-key-help-anchor");
     });
 
     it("should render the default values if non exist", async () => {
