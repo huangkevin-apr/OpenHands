@@ -8,19 +8,18 @@ This module provides functions to load skills from various sources:
 All skills are used in V1 conversations.
 """
 
+import io
 import logging
 import os
 from pathlib import Path
+
+import frontmatter
 
 import openhands
 from openhands.app_server.sandbox.sandbox_models import SandboxInfo
 from openhands.app_server.user.user_context import UserContext
 from openhands.integrations.provider import ProviderType
 from openhands.integrations.service_types import AuthenticationError
-import io
-
-import frontmatter
-
 from openhands.sdk.context.skills import Skill
 from openhands.sdk.context.skills.trigger import KeywordTrigger, TaskTrigger
 from openhands.sdk.workspace.remote.async_remote_workspace import AsyncRemoteWorkspace
@@ -54,7 +53,7 @@ def _find_and_load_global_skill_files(skill_dir: Path) -> list[Skill]:
         # Load skills from the found files
         for file_path in md_files:
             try:
-                skill = Skill.load(file_path, skill_dir)
+                skill = Skill.load(file_path, skill_base_dir=skill_dir)
                 skills.append(skill)
                 _logger.debug(f'Loaded global skill: {skill.name} from {file_path}')
             except Exception as e:
@@ -125,7 +124,6 @@ def _determine_repo_root(working_dir: str, selected_repository: str | None) -> s
         repo_name = selected_repository.split('/')[-1]
         return f'{working_dir}/{repo_name}'
     return working_dir
-
 
 
 def _skill_from_markdown_content(
