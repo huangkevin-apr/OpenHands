@@ -615,8 +615,17 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
             # First try to find a running sandbox for the current user
             sandbox = await self._find_running_sandbox_for_user()
             if sandbox is None:
-                # No running sandbox found, start a new one
                 sandbox = await self.sandbox_service.start_sandbox()
+                # Convert conversation_id to hex string if present
+                sandbox_id_str = (
+                    task.request.conversation_id.hex
+                    if task.request.conversation_id is not None
+                    else None
+                )
+                # No running sandbox found, start a new one
+                sandbox = await self.sandbox_service.start_sandbox(
+                    sandbox_id=sandbox_id_str
+                )
             task.sandbox_id = sandbox.id
         else:
             sandbox_info = await self.sandbox_service.get_sandbox(
