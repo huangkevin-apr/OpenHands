@@ -4,10 +4,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SAAS_NAV_ITEMS, OSS_NAV_ITEMS } from "#/constants/settings-nav";
 import OptionService from "#/api/option-service/option-service.api";
 import { useSettingsNavItems } from "#/hooks/use-settings-nav-items";
-import * as orgStore from "#/stores/selected-organization-store";
 import { OrganizationMember } from "#/types/org";
-import { useActiveOrganizationMember } from "#/hooks/use-settings-nav-items";
-import { organizationService } from "#/api/organization-service/organization-service.api";
+import * as useMeModule from "#/hooks/query/use-me";
 
 const queryClient = new QueryClient();
 const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -22,17 +20,17 @@ const mockConfig = (appMode: "saas" | "oss", hideLlmSettings = false) => {
 };
 
 const seedActiveUser = (
-  queryClient: QueryClient,
-  orgId: string,
   user: Partial<OrganizationMember>,
 ) => {
-  queryClient.setQueryData(
-    ["members", orgId, "me"],
-    { user_id: "u1", role: "admin", ...user } as OrganizationMember,
-  );
-
-  vi.spyOn(orgStore, "getSelectedOrganizationIdFromStore")
-    .mockReturnValue(orgId);
+  vi.spyOn(useMeModule, "useMe").mockReturnValue({
+    data: user,
+    status: "success",
+    isLoading: false,
+    isError: false,
+    isSuccess: true,
+    refetch: vi.fn(),
+    error: null,
+  } as any);
 };
 
 describe("useSettingsNavItems", () => {
@@ -43,9 +41,7 @@ describe("useSettingsNavItems", () => {
 
   it("should return SAAS_NAV_ITEMS when APP_MODE is 'saas' and userRole is 'member'", async () => {
     mockConfig("saas");
-
-    const orgId = "org-1";
-    seedActiveUser(queryClient, orgId, { role: "member" });
+    seedActiveUser({ role: "member" });
 
     const { result } = renderHook(() => useSettingsNavItems(), { wrapper });
 
@@ -60,8 +56,7 @@ describe("useSettingsNavItems", () => {
 
   it("should return SAAS_NAV_ITEMS when APP_MODE is 'saas' and userRole is NOT 'member'", async () => {
     mockConfig("saas");
-    const orgId = "org-1";
-    seedActiveUser(queryClient, orgId, { role: "admin" });
+    seedActiveUser({ role: "admin" });
     const { result } = renderHook(() => useSettingsNavItems(), { wrapper });
 
     await waitFor(() => {
@@ -71,6 +66,7 @@ describe("useSettingsNavItems", () => {
 
   it("should return OSS_NAV_ITEMS when APP_MODE is 'oss'", async () => {
     mockConfig("oss");
+    seedActiveUser({ role: "admin" });
     const { result } = renderHook(() => useSettingsNavItems(), { wrapper });
 
     await waitFor(() => {
@@ -80,6 +76,7 @@ describe("useSettingsNavItems", () => {
 
   it("should filter out '/settings' item when HIDE_LLM_SETTINGS feature flag is enabled", async () => {
     mockConfig("saas", true);
+    seedActiveUser({ role: "admin" });
     const { result } = renderHook(() => useSettingsNavItems(), { wrapper });
 
     await waitFor(() => {
@@ -87,49 +84,5 @@ describe("useSettingsNavItems", () => {
         result.current.find((item) => item.to === "/settings"),
       ).toBeUndefined();
     });
-  });
-});
-
-describe("useActiveOrganizationMember", () => {
-  beforeEach(() => {
-    queryClient.clear();
-    vi.restoreAllMocks();
-  });
-
-  it("does not fetch when orgId is undefined", async () => {
-    const spy = vi.spyOn(organizationService, "getMe");
-
-    renderHook(() => useActiveOrganizationMember(undefined), { wrapper });
-
-    // wait to allow react-query to potentially run
-    await waitFor(() => {
-      expect(spy).not.toHaveBeenCalled();
-    });
-  });
-
-  it("fetches user when orgId is provided", async () => {
-    const orgId = "org-123";
-
-    const mockUser: OrganizationMember = {
-      user_id: "user-1",
-      role: "admin",
-    } as OrganizationMember;
-
-    const spy = vi
-      .spyOn(organizationService, "getMe")
-      .mockResolvedValue(mockUser);
-
-    const { result } = renderHook(
-      () => useActiveOrganizationMember(orgId),
-      { wrapper },
-    );
-
-    await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
-    });
-
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith({ orgId });
-    expect(result.current.data).toEqual(mockUser);
   });
 });

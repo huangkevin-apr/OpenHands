@@ -2,7 +2,7 @@ import { organizationService } from "#/api/organization-service/organization-ser
 import { getSelectedOrganizationIdFromStore } from "#/stores/selected-organization-store";
 import { OrganizationMember, OrganizationUserRole } from "#/types/org";
 import { getMeFromQueryClient } from "../query-client-getters";
-import { Permission, rolePermissions } from "./permissions";
+import { Permission } from "./permissions";
 import { queryClient } from "#/query-client-config";
 
 /**
@@ -21,41 +21,6 @@ export const getActiveOrganizationUser = async (): Promise<
     queryClient.setQueryData(["organizations", orgId, "me"], user);
   }
   return user;
-};
-
-/**
- * Check if active user has permission to change another member's role
- * @param user OrganizationMember
- * @param memberId Id of org member whose role would change
- * @param memberRole Role of org member whose role would change
- * @returns boolean
- */
-export const doesUserHavePermissionToAssignRoles = (
-  user: OrganizationMember | undefined,
-  targetMemberId: string,
-  targetMemberRole: OrganizationUserRole,
-): boolean => {
-  if (!user) return false;
-
-  if (user.user_id === targetMemberId) return false;
-
-  if (user.role === "member") return false;
-
-  if (user.role === "admin") {
-    if (targetMemberRole !== "member") return false;
-
-    return rolePermissions.admin.includes("change_user_role:member");
-  }
-
-  if (user.role === "owner") {
-    if (targetMemberRole === "owner") return false;
-
-    return rolePermissions.owner.includes(
-      `change_user_role:${targetMemberRole}`,
-    );
-  }
-
-  return false;
 };
 
 /**

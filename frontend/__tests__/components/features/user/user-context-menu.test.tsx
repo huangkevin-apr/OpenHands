@@ -10,6 +10,7 @@ import { INITIAL_MOCK_ORGS } from "#/mocks/org-handlers";
 import AuthService from "#/api/auth-service/auth-service.api";
 import { SAAS_NAV_ITEMS, OSS_NAV_ITEMS } from "#/constants/settings-nav";
 import OptionService from "#/api/option-service/option-service.api";
+import * as useMeModule from "#/hooks/query/use-me";
 import { OrganizationMember } from "#/types/org";
 
 type UserContextMenuProps = GetComponentPropTypes<typeof UserContextMenu>;
@@ -63,6 +64,20 @@ vi.mock("#/stores/selected-organization-store", () => ({
   getSelectedOrganizationIdFromStore: () => "org-1",
 }));
 
+const seedActiveUser = (
+  user: Partial<OrganizationMember>,
+) => {
+  vi.spyOn(useMeModule, "useMe").mockReturnValue({
+    data: user,
+    status: "success",
+    isLoading: false,
+    isError: false,
+    isSuccess: true,
+    refetch: vi.fn(),
+    error: null,
+  } as any);
+};
+
 describe("UserContextMenu", () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -98,11 +113,6 @@ describe("UserContextMenu", () => {
       },
     });
 
-    vi.spyOn(organizationService, "getMe").mockResolvedValue({
-      user_id: "u1",
-      role: "member",
-    } as OrganizationMember);
-
     renderUserContextMenu({ type: "member", onClose: vi.fn });
 
     // Wait for config to load and verify that navigation items are rendered (except organization-members/org which are filtered out)
@@ -133,10 +143,7 @@ describe("UserContextMenu", () => {
       },
     });
 
-    vi.spyOn(organizationService, "getMe").mockResolvedValue({
-      user_id: "u1",
-      role: "admin",
-    } as OrganizationMember);
+    seedActiveUser({ role: 'admin' })
 
     renderUserContextMenu({ type: "admin", onClose: vi.fn });
 
@@ -312,7 +319,9 @@ describe("UserContextMenu", () => {
       },
     });
 
-    renderUserContextMenu({ type: "member", onClose: vi.fn });
+    seedActiveUser({ role: 'admin' })
+
+    renderUserContextMenu({ type: "admin", onClose: vi.fn });
 
     // Wait for config to load and test a few representative nav items have the correct href
     await waitFor(() => {

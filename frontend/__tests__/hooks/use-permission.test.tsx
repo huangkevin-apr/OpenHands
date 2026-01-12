@@ -83,4 +83,65 @@ describe("usePermission", () => {
       });
     });
   });
+
+  describe("change_user_role permission behavior (legacy parity)", () => {
+    const run = (
+      activeUserRole: OrganizationUserRole,
+      targetUserId: string,
+      targetRole: OrganizationUserRole,
+      activeUserId = "123",
+    ) => {
+      const { hasPermission } = renderHook(() =>
+        usePermission(activeUserRole),
+      ).result.current;
+
+      if (activeUserId === targetUserId) return false;
+
+      return hasPermission(`change_user_role:${targetRole}`);
+    };
+
+    describe("member role", () => {
+      it("cannot change any roles", () => {
+        expect(run("member", "u2", "member")).toBe(false);
+        expect(run("member", "u2", "admin")).toBe(false);
+        expect(run("member", "u2", "owner")).toBe(false);
+      });
+    });
+
+    describe("admin role", () => {
+      it("cannot change admin or owner roles", () => {
+        expect(run("admin", "u2", "admin")).toBe(false);
+        expect(run("admin", "u2", "owner")).toBe(false);
+      });
+
+      it("can change member roles", () => {
+        expect(run("admin", "u2", "member")).toBe(
+          rolePermissions.admin.includes("change_user_role:member"),
+        );
+      });
+    });
+
+    describe("owner role", () => {
+      it("cannot change another owner's role", () => {
+        expect(run("owner", "u2", "owner")).toBe(false);
+      });
+
+      it("can change admin and member roles", () => {
+        expect(run("owner", "u2", "admin")).toBe(
+          rolePermissions.owner.includes("change_user_role:admin"),
+        );
+
+        expect(run("owner", "u2", "member")).toBe(
+          rolePermissions.owner.includes("change_user_role:member"),
+        );
+      });
+    });
+
+    describe("self role change", () => {
+      it("is always disallowed", () => {
+        expect(run("owner", "actor", "member")).toBe(false);
+        expect(run("admin", "actor", "member")).toBe(false);
+      });
+    });
+  });
 });

@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import SettingsScreen, { clientLoader } from "#/routes/settings";
 import OptionService from "#/api/option-service/option-service.api";
 import { OrganizationMember } from "#/types/org";
+import * as useMeModule from "#/hooks/query/use-me";
 import * as orgStore from "#/stores/selected-organization-store";
 
 // Mock the i18next hook
@@ -62,8 +63,20 @@ describe("Settings Screen", () => {
       { user_id: "u1", role: "admin", ...user } as OrganizationMember,
     );
 
+    // The settings clientLoader() uses getActiveOrganizationUser() to get active user
     vi.spyOn(orgStore, "getSelectedOrganizationIdFromStore")
       .mockReturnValue(orgId);
+
+    // SettingsScreen uses useMe() to get active user
+    vi.spyOn(useMeModule, "useMe").mockReturnValue({
+      data: user,
+      status: "success",
+      isLoading: false,
+      isError: false,
+      isSuccess: true,
+      refetch: vi.fn(),
+      error: null,
+    } as any);
   };
 
   const RouterStub = createRoutesStub([

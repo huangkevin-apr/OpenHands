@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { redirect } from "react-router";
 import { InviteOrganizationMemberModal } from "#/components/features/org/invite-organization-member-modal";
 import { useOrganizationMembers } from "#/hooks/query/use-organization-members";
-import { OrganizationUserRole } from "#/types/org";
+import { OrganizationMember, OrganizationUserRole } from "#/types/org";
 import { OrganizationMemberListItem } from "#/components/features/org/organization-member-list-item";
 import { useUpdateMemberRole } from "#/hooks/mutation/use-update-member-role";
 import { useRemoveMember } from "#/hooks/mutation/use-remove-member";
@@ -18,10 +18,7 @@ import { getSelectedOrganizationIdFromStore } from "#/stores/selected-organizati
 import { getMeFromQueryClient } from "#/utils/query-client-getters";
 import { I18nKey } from "#/i18n/declaration";
 import { usePermission } from "#/hooks/organizations/use-permissions";
-import {
-  doesUserHavePermissionToAssignRoles,
-  getAvailableRolesAUserCanAssign,
-} from "#/utils/org/permission-checks";
+import { getAvailableRolesAUserCanAssign } from "#/utils/org/permission-checks";
 
 export const clientLoader = async () => {
   const selectedOrgId = getSelectedOrganizationIdFromStore();
@@ -66,6 +63,12 @@ function ManageOrganizationMembers() {
     [currentUserRole],
   );
 
+  const canAssignUserRole = (member: OrganizationMember) =>
+    user != null &&
+    user?.user_id !== member.user_id &&
+    user?.role !== member.role &&
+    hasPermission(`change_user_role:${member.role}`);
+
   return (
     <div
       data-testid="manage-organization-members-settings"
@@ -103,11 +106,7 @@ function ManageOrganizationMembers() {
                 email={member.email}
                 role={member.role}
                 status={member.status}
-                hasPermissionToChangeRole={doesUserHavePermissionToAssignRoles(
-                  user,
-                  member.user_id,
-                  member.role,
-                )}
+                hasPermissionToChangeRole={canAssignUserRole(member)}
                 availableRolesToChangeTo={availableRolesToChangeTo}
                 onRoleChange={(role) =>
                   handleRoleSelectionClick(member.user_id, role)
