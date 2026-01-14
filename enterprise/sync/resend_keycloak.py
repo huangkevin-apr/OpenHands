@@ -90,6 +90,66 @@ class ResendAPIError(ResendSyncError):
     pass
 
 
+class RateLimitError(ResendSyncError):
+    """Exception for rate limit errors that shouldn't be retried immediately."""
+
+    pass
+
+
+class RateLimiter:
+    """Simple rate limiter to ensure we don't exceed API rate limits.
+
+    This tracks the time of the last request and ensures we wait long enough
+    between requests to respect the rate limit.
+    """
+
+    def __init__(self, requests_per_second: float):
+        """Initialize the rate limiter.
+
+        Args:
+            requests_per_second: Maximum number of requests per second.
+        """
+        self.requests_per_second = requests_per_second
+        self.min_interval = 1.0 / requests_per_second
+        self.last_request_time = 0.0
+
+    def wait_if_needed(self):
+        """Wait if necessary to respect the rate limit."""
+        now = time.time()
+        time_since_last_request = now - self.last_request_time
+
+        if time_since_last_request < self.min_interval:
+            sleep_time = self.min_interval - time_since_last_request
+            logger.debug(f'Rate limiter sleeping for {sleep_time:.3f} seconds')
+            time.sleep(sleep_time)
+
+        self.last_request_time = time.time()
+
+
+# Global rate limiter instance that will be initialized in main
+rate_limiter: Optional[RateLimiter] = None
+
+
+def is_rate_limit_error(error: Exception) -> bool:
+    """Check if an error is a rate limit error.
+
+    Args:
+        error: The exception to check.
+
+    Returns:
+        True if the error is a rate limit error, False otherwise.
+    """
+    if isinstance(error, ResendError):
+        # Check the error message for rate limit indicators
+        error_msg = str(error).lower()
+        return (
+            'rate limit' in error_msg
+            or 'too many requests' in error_msg
+            or '429' in error_msg
+        )
+    return False
+
+
 def get_keycloak_users(offset: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
     """Get users from Keycloak using the admin client.
 
@@ -161,8 +221,17 @@ def get_total_keycloak_users() -> int:
         raise
 
 
+@retry(
+    stop=stop_after_attempt(MAX_RETRIES),
+    wait=wait_exponential(
+        multiplier=INITIAL_BACKOFF_SECONDS,
+        max=MAX_BACKOFF_SECONDS,
+        exp_base=BACKOFF_FACTOR,
+    ),
+    retry=retry_if_exception_type((ConnectionError, TimeoutError)),
+)
 def get_resend_contacts(audience_id: str) -> Dict[str, Dict[str, Any]]:
-    """Get contacts from Resend.
+    """Get contacts from Resend with retry logic for connection errors.
 
     Args:
         audience_id: The Resend audience ID.
@@ -176,10 +245,21 @@ def get_resend_contacts(audience_id: str) -> Dict[str, Dict[str, Any]]:
     print('getting resend contacts')
     print('has resend contacts', hasattr(resend, 'Contacts'))
     try:
+        # Use rate limiter before making request
+        if rate_limiter:
+            rate_limiter.wait_if_needed()
+
         contacts = resend.Contacts.list(audience_id).get('data', [])
         # Create a dictionary mapping email addresses to contact data for
         # efficient lookup
         return {contact['email'].lower(): contact for contact in contacts}
+    except ResendError as e:
+        if is_rate_limit_error(e):
+            logger.warning('Hit rate limit getting contacts, backing off')
+            # Wait longer before retrying
+            time.sleep(5)
+        logger.exception('Failed to get contacts from Resend')
+        raise
     except Exception:
         logger.exception('Failed to get contacts from Resend')
         raise
@@ -187,12 +267,9 @@ def get_resend_contacts(audience_id: str) -> Dict[str, Dict[str, Any]]:
 
 @retry(
     stop=stop_after_attempt(MAX_RETRIES),
-    wait=wait_exponential(
-        multiplier=INITIAL_BACKOFF_SECONDS,
-        max=MAX_BACKOFF_SECONDS,
-        exp_base=BACKOFF_FACTOR,
-    ),
-    retry=retry_if_exception_type((ResendError, KeycloakClientError)),
+    wait=wait_exponential(multiplier=5, min=5, max=60),
+    retry=retry_if_exception_type(RateLimitError),
+    reraise=True,
 )
 def add_contact_to_resend(
     audience_id: str,
@@ -200,7 +277,7 @@ def add_contact_to_resend(
     first_name: Optional[str] = None,
     last_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Add a contact to the Resend audience with retry logic.
+    """Add a contact to the Resend audience with rate limiting.
 
     Args:
         audience_id: The Resend audience ID.
@@ -212,9 +289,14 @@ def add_contact_to_resend(
         The API response.
 
     Raises:
-        ResendAPIError: If the API call fails after retries.
+        ResendError: If the API call fails.
+        RateLimitError: If we hit a rate limit (will be retried).
     """
     try:
+        # Use rate limiter before making request
+        if rate_limiter:
+            rate_limiter.wait_if_needed()
+
         params = {'audience_id': audience_id, 'email': email}
 
         if first_name:
@@ -224,11 +306,23 @@ def add_contact_to_resend(
             params['last_name'] = last_name
 
         return resend.Contacts.create(params)
+    except ResendError as e:
+        if is_rate_limit_error(e):
+            logger.warning(f'Hit rate limit adding contact {email}')
+            raise RateLimitError(f'Rate limit hit for {email}') from e
+        logger.exception(f'Failed to add contact {email} to Resend')
+        raise
     except Exception:
         logger.exception(f'Failed to add contact {email} to Resend')
         raise
 
 
+@retry(
+    stop=stop_after_attempt(MAX_RETRIES),
+    wait=wait_exponential(multiplier=5, min=5, max=60),
+    retry=retry_if_exception_type(RateLimitError),
+    reraise=True,
+)
 def send_welcome_email(
     email: str,
     first_name: Optional[str] = None,
@@ -246,6 +340,7 @@ def send_welcome_email(
 
     Raises:
         ResendError: If the API call fails.
+        RateLimitError: If we hit a rate limit (will be retried).
     """
     try:
         # Prepare the recipient name
@@ -282,10 +377,20 @@ def send_welcome_email(
             """,
         }
 
+        # Use rate limiter before making request
+        if rate_limiter:
+            rate_limiter.wait_if_needed()
+
         # Send the email
         response = resend.Emails.send(params)
         logger.info(f'Welcome email sent to {email}')
         return response
+    except ResendError as e:
+        if is_rate_limit_error(e):
+            logger.warning(f'Hit rate limit sending email to {email}')
+            raise RateLimitError(f'Rate limit hit sending email to {email}') from e
+        logger.exception(f'Failed to send welcome email to {email}')
+        raise
     except Exception:
         logger.exception(f'Failed to send welcome email to {email}')
         raise
@@ -293,6 +398,12 @@ def send_welcome_email(
 
 def sync_users_to_resend():
     """Sync users from Keycloak to Resend."""
+    global rate_limiter
+
+    # Initialize the global rate limiter
+    rate_limiter = RateLimiter(RATE_LIMIT)
+    logger.info(f'Initialized rate limiter with {RATE_LIMIT} requests per second')
+
     # Check required environment variables
     required_vars = {
         'RESEND_API_KEY': RESEND_API_KEY,
@@ -360,27 +471,28 @@ def sync_users_to_resend():
                     last_name = user.get('last_name')
 
                     # Add the contact to the Resend audience
+                    # The @retry decorator handles rate limit retries with exponential backoff
                     add_contact_to_resend(
                         RESEND_AUDIENCE_ID, email, first_name, last_name
                     )
                     logger.info(f'Added user {email} to Resend')
                     stats['added_contacts'] += 1
 
-                    # Sleep to respect rate limit after first API call
-                    time.sleep(1 / RATE_LIMIT)
-
                     # Send a welcome email to the newly added contact
+                    # The @retry decorator handles rate limit retries with exponential backoff
                     try:
                         send_welcome_email(email, first_name, last_name)
-                        logger.info(f'Sent welcome email to {email}')
                     except Exception:
                         logger.exception(
-                            f'Failed to send welcome email to {email}, but contact was added to audience'
+                            f'Failed to send welcome email to {email}, '
+                            f'but contact was added to audience'
                         )
                         # Continue with the sync process even if sending the welcome email fails
 
-                    # Sleep to respect rate limit after second API call
-                    time.sleep(1 / RATE_LIMIT)
+                except RateLimitError:
+                    # Rate limit errors that exhausted all retries
+                    logger.error(f'Persistent rate limit error for user {email}')
+                    stats['errors'] += 1
                 except Exception:
                     logger.exception(f'Error adding user {email} to Resend')
                     stats['errors'] += 1
