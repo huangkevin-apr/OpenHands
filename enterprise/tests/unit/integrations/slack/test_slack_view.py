@@ -586,12 +586,16 @@ class TestRuntimeWaitTracker:
         )
 
         initial_count = get_current_wait_count()
+        exception_raised = False
 
-        with pytest.raises(ValueError):
+        try:
             async with track_runtime_wait():
                 assert get_current_wait_count() == initial_count + 1
                 raise ValueError('Test exception')
+        except ValueError:
+            exception_raised = True
 
+        assert exception_raised
         assert get_current_wait_count() == initial_count
 
     async def test_too_many_waiting_error(self):

@@ -64,9 +64,7 @@ async def track_runtime_wait():
             f'Slack runtime wait rejected: {_current_wait_count} already waiting '
             f'(max: {MAX_CONCURRENT_RUNTIME_WAITS})'
         )
-        raise TooManyWaitingError(
-            'Something went wrong. Please try again later.'
-        )
+        raise TooManyWaitingError('Something went wrong. Please try again later.')
 
     _current_wait_count += 1
     RUNTIME_WAIT_CURRENT.set(_current_wait_count)
