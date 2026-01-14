@@ -3,6 +3,10 @@ from uuid import UUID, uuid4
 
 from integrations.models import Message
 from integrations.resolver_context import ResolverUserContext
+from integrations.slack.runtime_wait_tracker import (
+    TooManyWaitingError,
+    track_runtime_wait,
+)
 from integrations.slack.slack_types import SlackViewInterface, StartingConvoException
 from integrations.slack.slack_v1_callback_processor import SlackV1CallbackProcessor
 from integrations.utils import (
@@ -390,9 +394,14 @@ class SlackUpdateExistingConversationView(SlackNewConversationView):
 
         # Wait for the runtime to be ready before sending the message
         # Slack is asynchronous, so we can afford to wait
-        await self._wait_for_runtime_ready(
-            user_id, conversation_init_data, providers_set
-        )
+        # Track this wait operation for metrics and enforce concurrency limits
+        try:
+            async with track_runtime_wait():
+                await self._wait_for_runtime_ready(
+                    user_id, conversation_init_data, providers_set
+                )
+        except TooManyWaitingError as e:
+            raise StartingConvoException(str(e)) from None
 
         user_msg, _ = self._get_instructions(jinja)
         user_msg_action = MessageAction(content=user_msg)
