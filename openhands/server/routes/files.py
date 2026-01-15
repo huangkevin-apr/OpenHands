@@ -159,7 +159,7 @@ async def select_file(
         HTTPException: If there's an error opening the file.
 
         For V1 conversations, file operations are performed through the sandbox's remote workspace.
-        Use ``GET /api/v1/app-conversations/{conversation_id}/file?path={file_path}`` to read files
+        Use ``GET /api/v1/app-conversations/{conversation_id}/file?file_path={file_path}`` to read files
         from V1 conversations.
     """
     runtime: Runtime = conversation.runtime
