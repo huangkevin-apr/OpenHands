@@ -256,47 +256,6 @@ describe("Content", () => {
       ).toBeInTheDocument();
     });
   });
-
-  // Skipped: This feature requires APP_SLUG which was removed from WebClientConfig
-  // The "Configure GitHub Repositories" button functionality is currently disabled pending new implementation
-  it.skip("should render the 'Configure GitHub Repositories' button if SaaS mode and app slug exists", async () => {
-    const getConfigSpy = vi.spyOn(OptionService, "getConfig");
-    getConfigSpy.mockResolvedValue(VALID_OSS_CONFIG);
-
-    const { rerender } = renderGitSettingsScreen();
-
-    let button = screen.queryByTestId("configure-github-repositories-button");
-    expect(button).not.toBeInTheDocument();
-
-    expect(screen.getByTestId("submit-button")).toBeInTheDocument();
-    expect(screen.getByTestId("disconnect-tokens-button")).toBeInTheDocument();
-
-    getConfigSpy.mockResolvedValue(VALID_SAAS_CONFIG);
-    queryClient.invalidateQueries();
-    rerender();
-
-    await waitFor(() => {
-      // wait until queries are resolved
-      expect(queryClient.isFetching()).toBe(0);
-      button = screen.queryByTestId("configure-github-repositories-button");
-      expect(button).not.toBeInTheDocument();
-    });
-
-    getConfigSpy.mockResolvedValue({
-      ...VALID_SAAS_CONFIG,
-    });
-    queryClient.invalidateQueries();
-    rerender();
-
-    await waitFor(() => {
-      button = screen.getByTestId("configure-github-repositories-button");
-      expect(button).toBeInTheDocument();
-      expect(screen.queryByTestId("submit-button")).not.toBeInTheDocument();
-      expect(
-        screen.queryByTestId("disconnect-tokens-button"),
-      ).not.toBeInTheDocument();
-    });
-  });
 });
 
 describe("Form submission", () => {
@@ -641,43 +600,6 @@ describe("GitLab Webhook Manager Integration", () => {
       expect(
         screen.queryByText("GITLAB$WEBHOOK_MANAGER_TITLE"),
       ).not.toBeInTheDocument();
-    });
-  });
-
-  // Skipped: GitLab webhook manager is only shown when shouldRenderExternalConfigureButtons is true
-  // which requires APP_SLUG that was removed from WebClientConfig
-  it.skip("should render GitLab webhook manager when token is set", async () => {
-    // Arrange
-    const getConfigSpy = vi.spyOn(OptionService, "getConfig");
-    const getSettingsSpy = vi.spyOn(SettingsService, "getSettings");
-    const getResourcesSpy = vi.spyOn(
-      integrationService,
-      "getGitLabResources",
-    );
-
-    getConfigSpy.mockResolvedValue({
-      ...VALID_SAAS_CONFIG,
-    });
-    getSettingsSpy.mockResolvedValue({
-      ...MOCK_DEFAULT_USER_SETTINGS,
-      provider_tokens_set: {
-        gitlab: null,
-      },
-    });
-    getResourcesSpy.mockResolvedValue({
-      resources: [],
-    });
-
-    // Act
-    renderGitSettingsScreen();
-    await screen.findByTestId("git-settings-screen");
-
-    // Assert
-    await waitFor(() => {
-      expect(
-        screen.getByText("GITLAB$WEBHOOK_MANAGER_TITLE"),
-      ).toBeInTheDocument();
-      expect(getResourcesSpy).toHaveBeenCalled();
     });
   });
 });
