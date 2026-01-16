@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { useCombobox } from "downshift";
 import { useTranslation } from "react-i18next";
-import { Provider, ProviderOptions } from "#/types/settings";
+import { Provider } from "#/types/settings";
 import { GitRepository } from "#/types/git";
 import { useDebounce } from "#/hooks/use-debounce";
 import { cn } from "#/utils/utils";
@@ -20,7 +20,6 @@ import { EmptyState } from "../shared/empty-state";
 import { useUrlSearch } from "./use-url-search";
 import { useRepositoryData } from "./use-repository-data";
 import { GenericDropdownMenu } from "../shared/generic-dropdown-menu";
-import { useConfig } from "#/hooks/query/use-config";
 import { I18nKey } from "#/i18n/declaration";
 import RepoIcon from "#/icons/repo.svg?react";
 import { useHomeStore } from "#/stores/home-store";
@@ -46,7 +45,6 @@ export function GitRepoDropdown({
   onChange,
 }: GitRepoDropdownProps) {
   const { t } = useTranslation();
-  const { data: config } = useConfig();
   const { recentRepositories: storedRecentRepositories } = useHomeStore();
   const [inputValue, setInputValue] = useState("");
   const [localSelectedItem, setLocalSelectedItem] =
@@ -243,37 +241,6 @@ export function GitRepoDropdown({
   const isLoadingState =
     isLoading || isSearchLoading || isFetchingNextPage || isUrlSearchLoading;
 
-  // Create sticky footer item for GitHub provider
-  // Note: This feature requires APP_SLUG which is only available via the GitHub App
-  // configuration. This functionality is currently disabled.
-  const stickyFooterItem = useMemo(() => {
-    // Feature disabled - APP_SLUG is no longer available from the web client config
-    if (provider !== ProviderOptions.github || config?.app_mode !== "saas")
-      return null;
-
-    // TODO: Re-enable when GitHub App slug is available
-    return null;
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const githubHref = "https://github.com/apps/openhands/installations/new";
-
-    return (
-      <a
-        href={githubHref}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center w-full px-2 py-2 text-sm text-white hover:bg-[#5C5D62] rounded-md transition-colors duration-150 font-normal"
-        onMouseDown={(e) => {
-          // Prevent downshift from closing the menu when clicking the sticky footer
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-      >
-        {t(I18nKey.HOME$ADD_GITHUB_REPOS)}
-      </a>
-    );
-  }, [provider, config, t]);
-
   const renderItem = (
     item: GitRepository,
     index: number,
@@ -369,7 +336,6 @@ export function GitRepoDropdown({
         renderItem={renderItem}
         renderEmptyState={renderEmptyState}
         stickyTopItem={stickyTopItem}
-        stickyFooterItem={stickyFooterItem}
         testId="git-repo-dropdown-menu"
         numberOfRecentItems={recentRepositories.length}
         itemKey={(repo) => repo.id}
