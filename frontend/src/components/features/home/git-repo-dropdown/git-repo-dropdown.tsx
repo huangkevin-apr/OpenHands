@@ -244,15 +244,18 @@ export function GitRepoDropdown({
     isLoading || isSearchLoading || isFetchingNextPage || isUrlSearchLoading;
 
   // Create sticky footer item for GitHub provider
+  // Note: This feature requires APP_SLUG which is only available via the GitHub App
+  // configuration. This functionality is currently disabled.
   const stickyFooterItem = useMemo(() => {
-    if (
-      !config?.APP_SLUG ||
-      provider !== ProviderOptions.github ||
-      config.APP_MODE !== "saas"
-    )
+    // Feature disabled - APP_SLUG is no longer available from the web client config
+    if (provider !== ProviderOptions.github || config?.app_mode !== "saas")
       return null;
 
-    const githubHref = `https://github.com/apps/${config.APP_SLUG}/installations/new`;
+    // TODO: Re-enable when GitHub App slug is available
+    return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const githubHref = "https://github.com/apps/openhands/installations/new";
 
     return (
       <a

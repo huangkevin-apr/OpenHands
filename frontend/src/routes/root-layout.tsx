@@ -124,10 +124,10 @@ export default function MainApp() {
   }, [isOnTosPage]);
 
   React.useEffect(() => {
-    if (settings?.is_new_user && config.data?.APP_MODE === "saas") {
+    if (settings?.is_new_user && config.data?.app_mode === "saas") {
       displaySuccessToast(t(I18nKey.BILLING$YOURE_IN));
     }
-  }, [settings?.is_new_user, config.data?.APP_MODE]);
+  }, [settings?.is_new_user, config.data?.app_mode]);
 
   // Function to check if login method exists in local storage
   const checkLoginMethodExists = React.useCallback(() => {
@@ -177,7 +177,7 @@ export default function MainApp() {
     (!isAuthed &&
       !isAuthError &&
       !isOnTosPage &&
-      config.data?.APP_MODE === "saas" &&
+      config.data?.app_mode === "saas" &&
       !loginMethodExists);
 
   React.useEffect(() => {
@@ -203,7 +203,7 @@ export default function MainApp() {
     !isAuthError &&
     !isFetchingAuth &&
     !isOnTosPage &&
-    config.data?.APP_MODE === "saas" &&
+    config.data?.app_mode === "saas" &&
     loginMethodExists;
 
   return (
@@ -219,8 +219,8 @@ export default function MainApp() {
       <Sidebar />
 
       <div className="flex flex-col w-full h-[calc(100%-50px)] md:h-full gap-3">
-        {config.data?.MAINTENANCE && (
-          <MaintenanceBanner startTime={config.data.MAINTENANCE.startTime} />
+        {config.data?.maintenance_start_time && (
+          <MaintenanceBanner startTime={config.data.maintenance_start_time} />
         )}
         <div
           id="root-outlet"
@@ -233,7 +233,7 @@ export default function MainApp() {
       </div>
 
       {renderReAuthModal && <ReauthModal />}
-      {config.data?.APP_MODE === "oss" && consentFormIsOpen && (
+      {config.data?.app_mode === "oss" && consentFormIsOpen && (
         <AnalyticsConsentFormModal
           onClose={() => {
             setConsentFormIsOpen(false);
@@ -241,8 +241,8 @@ export default function MainApp() {
         />
       )}
 
-      {config.data?.FEATURE_FLAGS.ENABLE_BILLING &&
-        config.data?.APP_MODE === "saas" &&
+      {config.data?.feature_flags.enable_billing &&
+        config.data?.app_mode === "saas" &&
         settings?.is_new_user && <SetupPaymentModal />}
     </div>
   );

@@ -33,7 +33,7 @@ const {
   })),
   useConfigMock: vi.fn(() => ({
     data: {
-      APP_MODE: "oss",
+      app_mode: "oss",
     },
   })),
 }));
@@ -667,7 +667,7 @@ describe("ConversationNameContextMenu - Share Link Functionality", () => {
 
     useConfigMock.mockReturnValue({
       data: {
-        APP_MODE: "saas",
+        app_mode: "saas",
       },
     });
 
@@ -693,7 +693,7 @@ describe("ConversationNameContextMenu - Share Link Functionality", () => {
 
     useConfigMock.mockReturnValue({
       data: {
-        APP_MODE: "saas",
+        app_mode: "saas",
       },
     });
 
@@ -726,7 +726,7 @@ describe("ConversationNameContextMenu - Share Link Functionality", () => {
 
     useConfigMock.mockReturnValue({
       data: {
-        APP_MODE: "saas",
+        app_mode: "saas",
       },
     });
 
@@ -759,7 +759,7 @@ describe("ConversationNameContextMenu - Share Link Functionality", () => {
 
     useConfigMock.mockReturnValue({
       data: {
-        APP_MODE: "saas",
+        app_mode: "saas",
       },
     });
 
@@ -789,7 +789,7 @@ describe("ConversationNameContextMenu - Share Link Functionality", () => {
 
     useConfigMock.mockReturnValue({
       data: {
-        APP_MODE: "saas",
+        app_mode: "saas",
       },
     });
 
@@ -818,7 +818,7 @@ describe("ConversationNameContextMenu - Share Link Functionality", () => {
 
       useConfigMock.mockReturnValue({
         data: {
-          APP_MODE: "saas",
+          app_mode: "saas",
         },
       });
     });
