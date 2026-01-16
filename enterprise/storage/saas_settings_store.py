@@ -102,6 +102,7 @@ class SaasSettingsStore(SettingsStore):
                 if c.name in Settings.model_fields
             }
             self._decrypt_kwargs(kwargs)
+            kwargs['v1_enabled'] = True
             settings = Settings(**kwargs)
 
             return settings
