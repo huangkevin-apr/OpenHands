@@ -11,12 +11,14 @@ interface AlertBannerProps {
   maintenanceStartTime?: string | null;
   faultyModels?: string[];
   errorMessage?: string | null;
+  updatedAt: string;
 }
 
 export function AlertBanner({
   maintenanceStartTime,
   faultyModels,
   errorMessage,
+  updatedAt,
 }: AlertBannerProps) {
   const { t } = useTranslation();
   const [dismissedAt, setDismissedAt] = useLocalStorage<string | null>(
@@ -26,71 +28,24 @@ export function AlertBanner({
 
   const { pathname } = useLocation();
 
-  // Convert EST timestamp to user's local timezone
-  const formatMaintenanceTime = (estTimeString: string): string => {
-    try {
-      // Parse the EST timestamp
-      // If the string doesn't include timezone info, assume it's EST
-      let dateToFormat: Date;
-
-      if (
-        estTimeString.includes("T") &&
-        (estTimeString.includes("-05:00") ||
-          estTimeString.includes("-04:00") ||
-          estTimeString.includes("EST") ||
-          estTimeString.includes("EDT"))
-      ) {
-        // Already has timezone info
-        dateToFormat = new Date(estTimeString);
-      } else {
-        // Assume EST and convert to UTC for proper parsing
-        // EST is UTC-5, EDT is UTC-4, but we'll assume EST for simplicity
-        const estDate = new Date(estTimeString);
-        if (Number.isNaN(estDate.getTime())) {
-          throw new Error("Invalid date");
-        }
-        dateToFormat = estDate;
-      }
-
-      // Format to user's local timezone
-      return dateToFormat.toLocaleString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZoneName: "short",
-      });
-    } catch (error) {
-      // Fallback to original string if parsing fails
-      // eslint-disable-next-line no-console
-      console.warn("Failed to parse maintenance time:", error);
-      return estTimeString;
-    }
+  // Format ISO timestamp to user's local timezone
+  const formatMaintenanceTime = (isoTimeString: string): string => {
+    const date = new Date(isoTimeString);
+    return date.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    });
   };
 
   const localTime = maintenanceStartTime
     ? formatMaintenanceTime(maintenanceStartTime)
     : null;
 
-  // Generate a unique identifier for the current alert state
-  const alertIdentifier = useMemo(() => {
-    const parts: string[] = [];
-    if (localTime) {
-      parts.push(`maintenance:${localTime}`);
-    }
-    if (faultyModels && faultyModels.length > 0) {
-      parts.push(`faulty:${faultyModels.sort().join(",")}`);
-    }
-    if (errorMessage) {
-      parts.push(`error:${errorMessage}`);
-    }
-    return parts.join("|");
-  }, [localTime, faultyModels, errorMessage]);
-
-  const hasMaintenanceAlert =
-    maintenanceStartTime &&
-    !Number.isNaN(new Date(maintenanceStartTime).getTime());
+  const hasMaintenanceAlert = !!maintenanceStartTime;
   const hasFaultyModels = faultyModels && faultyModels.length > 0;
   const hasErrorMessage = errorMessage && errorMessage.trim().length > 0;
 
@@ -100,8 +55,8 @@ export function AlertBanner({
     if (!hasAnyAlert) {
       return false;
     }
-    return dismissedAt !== alertIdentifier;
-  }, [dismissedAt, alertIdentifier, hasAnyAlert]);
+    return dismissedAt !== updatedAt;
+  }, [dismissedAt, updatedAt, hasAnyAlert]);
 
   // Try to translate error message, fallback to raw message
   const translatedErrorMessage = useMemo(() => {
@@ -169,7 +124,7 @@ export function AlertBanner({
       <button
         type="button"
         data-testid="dismiss-button"
-        onClick={() => setDismissedAt(alertIdentifier)}
+        onClick={() => setDismissedAt(updatedAt)}
         className={cn(
           "bg-[#0D0F11] rounded-full w-5 h-5 flex items-center justify-center cursor-pointer",
         )}

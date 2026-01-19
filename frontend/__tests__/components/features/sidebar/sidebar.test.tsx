@@ -35,6 +35,7 @@ const createMockConfig = (
     recaptcha_site_key: null,
     faulty_models: [],
     error_message: null,
+    updated_at: "2024-01-14T10:00:00Z",
     ...restOverrides,
   };
 };

@@ -31,6 +31,7 @@ const VALID_OSS_CONFIG: WebClientConfig = {
   recaptcha_site_key: null,
   faulty_models: [],
   error_message: null,
+  updated_at: "2024-01-14T10:00:00Z",
 };
 
 const VALID_SAAS_CONFIG: WebClientConfig = {
@@ -49,6 +50,7 @@ const VALID_SAAS_CONFIG: WebClientConfig = {
   recaptcha_site_key: null,
   faulty_models: [],
   error_message: null,
+  updated_at: "2024-01-14T10:00:00Z",
 };
 
 const queryClient = new QueryClient();

@@ -156,6 +156,7 @@ describe("HomeScreen", () => {
       recaptcha_site_key: null,
       faulty_models: [],
       error_message: null,
+      updated_at: "2024-01-14T10:00:00Z",
     });
 
     vi.spyOn(AuthService, "authenticate").mockResolvedValue(true);
@@ -461,6 +462,7 @@ describe("Settings 404", () => {
       recaptcha_site_key: null,
       faulty_models: [],
       error_message: null,
+      updated_at: "2024-01-14T10:00:00Z",
     });
 
     vi.spyOn(AuthService, "authenticate").mockResolvedValue(true);
@@ -565,6 +567,7 @@ describe("Setup Payment modal", () => {
       recaptcha_site_key: null,
       faulty_models: [],
       error_message: null,
+      updated_at: "2024-01-14T10:00:00Z",
     });
 
     vi.spyOn(AuthService, "authenticate").mockResolvedValue(true);

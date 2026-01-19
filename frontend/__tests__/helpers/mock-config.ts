@@ -23,5 +23,6 @@ export const createMockWebClientConfig = (
   recaptcha_site_key: null,
   faulty_models: [],
   error_message: null,
+  updated_at: new Date().toISOString(),
   ...overrides,
 });

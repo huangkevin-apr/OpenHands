@@ -87,6 +87,7 @@ export const SETTINGS_HANDLERS = [
       recaptcha_site_key: null,
       faulty_models: [],
       error_message: null,
+      updated_at: new Date().toISOString(),
     };
 
     return HttpResponse.json(config);

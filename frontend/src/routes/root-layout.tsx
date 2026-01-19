@@ -219,16 +219,18 @@ export default function MainApp() {
       <Sidebar />
 
       <div className="flex flex-col w-full h-[calc(100%-50px)] md:h-full gap-3">
-        {(config.data?.maintenance_start_time ||
-          (config.data?.faulty_models &&
-            config.data.faulty_models.length > 0) ||
-          config.data?.error_message) && (
-          <AlertBanner
-            maintenanceStartTime={config.data?.maintenance_start_time}
-            faultyModels={config.data?.faulty_models}
-            errorMessage={config.data?.error_message}
-          />
-        )}
+        {config.data &&
+          (config.data.maintenance_start_time ||
+            (config.data.faulty_models &&
+              config.data.faulty_models.length > 0) ||
+            config.data.error_message) && (
+            <AlertBanner
+              maintenanceStartTime={config.data.maintenance_start_time}
+              faultyModels={config.data.faulty_models}
+              errorMessage={config.data.error_message}
+              updatedAt={config.data.updated_at}
+            />
+          )}
         <div
           id="root-outlet"
           className="flex-1 relative overflow-auto custom-scrollbar"

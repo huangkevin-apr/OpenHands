@@ -31,11 +31,12 @@ describe("AlertBanner", () => {
 
   describe("Maintenance alerts", () => {
     it("renders maintenance banner with formatted time", () => {
-      const startTime = "2024-01-15T10:00:00-05:00"; // EST timestamp
+      const startTime = "2024-01-15T10:00:00-05:00";
+      const updatedAt = "2024-01-14T10:00:00Z";
 
       const { container } = render(
         <MemoryRouter>
-          <AlertBanner maintenanceStartTime={startTime} />
+          <AlertBanner maintenanceStartTime={startTime} updatedAt={updatedAt} />
         </MemoryRouter>,
       );
 
@@ -49,31 +50,13 @@ describe("AlertBanner", () => {
       expect(button).toBeInTheDocument();
     });
 
-    it("handles invalid date gracefully", () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, "warn")
-        .mockImplementation(() => {});
-
-      const invalidTime = "invalid-date";
-
-      render(
-        <MemoryRouter>
-          <AlertBanner maintenanceStartTime={invalidTime} />
-        </MemoryRouter>,
-      );
-
-      const banner = screen.queryByTestId("alert-banner");
-      expect(banner).not.toBeInTheDocument();
-
-      consoleWarnSpy.mockRestore();
-    });
-
     it("click on dismiss button removes banner", () => {
       const startTime = "2024-01-15T10:00:00-05:00";
+      const updatedAt = "2024-01-14T10:00:00Z";
 
       render(
         <MemoryRouter>
-          <AlertBanner maintenanceStartTime={startTime} />
+          <AlertBanner maintenanceStartTime={startTime} updatedAt={updatedAt} />
         </MemoryRouter>,
       );
 
@@ -87,13 +70,14 @@ describe("AlertBanner", () => {
       expect(banner).not.toBeInTheDocument();
     });
 
-    it("banner reappears after dismissing on next maintenance event", () => {
+    it("banner reappears when updatedAt changes", () => {
       const startTime = "2024-01-15T10:00:00-05:00";
-      const nextStartTime = "2025-01-15T10:00:00-05:00";
+      const updatedAt = "2024-01-14T10:00:00Z";
+      const newUpdatedAt = "2024-01-15T10:00:00Z";
 
       const { rerender } = render(
         <MemoryRouter>
-          <AlertBanner maintenanceStartTime={startTime} />
+          <AlertBanner maintenanceStartTime={startTime} updatedAt={updatedAt} />
         </MemoryRouter>,
       );
 
@@ -108,7 +92,10 @@ describe("AlertBanner", () => {
 
       rerender(
         <MemoryRouter>
-          <AlertBanner maintenanceStartTime={nextStartTime} />
+          <AlertBanner
+            maintenanceStartTime={startTime}
+            updatedAt={newUpdatedAt}
+          />
         </MemoryRouter>,
       );
 
@@ -119,10 +106,11 @@ describe("AlertBanner", () => {
   describe("Faulty models alerts", () => {
     it("renders banner with faulty models list", () => {
       const faultyModels = ["gpt-4", "claude-3"];
+      const updatedAt = "2024-01-14T10:00:00Z";
 
       render(
         <MemoryRouter>
-          <AlertBanner faultyModels={faultyModels} />
+          <AlertBanner faultyModels={faultyModels} updatedAt={updatedAt} />
         </MemoryRouter>,
       );
 
@@ -138,9 +126,11 @@ describe("AlertBanner", () => {
     });
 
     it("does not render banner when faulty models array is empty", () => {
+      const updatedAt = "2024-01-14T10:00:00Z";
+
       render(
         <MemoryRouter>
-          <AlertBanner faultyModels={[]} />
+          <AlertBanner faultyModels={[]} updatedAt={updatedAt} />
         </MemoryRouter>,
       );
 
@@ -148,12 +138,14 @@ describe("AlertBanner", () => {
       expect(banner).not.toBeInTheDocument();
     });
 
-    it("banner reappears when faulty models change", () => {
+    it("banner reappears when updatedAt changes", () => {
       const faultyModels = ["gpt-4"];
+      const updatedAt = "2024-01-14T10:00:00Z";
+      const newUpdatedAt = "2024-01-15T10:00:00Z";
 
       const { rerender } = render(
         <MemoryRouter>
-          <AlertBanner faultyModels={faultyModels} />
+          <AlertBanner faultyModels={faultyModels} updatedAt={updatedAt} />
         </MemoryRouter>,
       );
 
@@ -168,7 +160,7 @@ describe("AlertBanner", () => {
 
       rerender(
         <MemoryRouter>
-          <AlertBanner faultyModels={["gpt-4", "claude-3"]} />
+          <AlertBanner faultyModels={faultyModels} updatedAt={newUpdatedAt} />
         </MemoryRouter>,
       );
 
@@ -178,9 +170,11 @@ describe("AlertBanner", () => {
 
   describe("Error message alerts", () => {
     it("renders banner with translated error message", () => {
+      const updatedAt = "2024-01-14T10:00:00Z";
+
       render(
         <MemoryRouter>
-          <AlertBanner errorMessage="ERROR$TRANSLATED_KEY" />
+          <AlertBanner errorMessage="ERROR$TRANSLATED_KEY" updatedAt={updatedAt} />
         </MemoryRouter>,
       );
 
@@ -193,10 +187,11 @@ describe("AlertBanner", () => {
 
     it("renders banner with raw error message when no translation exists", () => {
       const rawErrorMessage = "This is a raw error without translation";
+      const updatedAt = "2024-01-14T10:00:00Z";
 
       render(
         <MemoryRouter>
-          <AlertBanner errorMessage={rawErrorMessage} />
+          <AlertBanner errorMessage={rawErrorMessage} updatedAt={updatedAt} />
         </MemoryRouter>,
       );
 
@@ -206,9 +201,11 @@ describe("AlertBanner", () => {
     });
 
     it("does not render banner when error message is empty", () => {
+      const updatedAt = "2024-01-14T10:00:00Z";
+
       render(
         <MemoryRouter>
-          <AlertBanner errorMessage="" />
+          <AlertBanner errorMessage="" updatedAt={updatedAt} />
         </MemoryRouter>,
       );
 
@@ -217,9 +214,11 @@ describe("AlertBanner", () => {
     });
 
     it("does not render banner when error message is null", () => {
+      const updatedAt = "2024-01-14T10:00:00Z";
+
       render(
         <MemoryRouter>
-          <AlertBanner errorMessage={null} />
+          <AlertBanner errorMessage={null} updatedAt={updatedAt} />
         </MemoryRouter>,
       );
 
@@ -233,6 +232,7 @@ describe("AlertBanner", () => {
       const startTime = "2024-01-15T10:00:00-05:00";
       const faultyModels = ["gpt-4"];
       const errorMessage = "ERROR$TRANSLATED_KEY";
+      const updatedAt = "2024-01-14T10:00:00Z";
 
       render(
         <MemoryRouter>
@@ -240,6 +240,7 @@ describe("AlertBanner", () => {
             maintenanceStartTime={startTime}
             faultyModels={faultyModels}
             errorMessage={errorMessage}
+            updatedAt={updatedAt}
           />
         </MemoryRouter>,
       );
@@ -261,12 +262,14 @@ describe("AlertBanner", () => {
     it("dismissing hides all alerts", () => {
       const startTime = "2024-01-15T10:00:00-05:00";
       const faultyModels = ["gpt-4"];
+      const updatedAt = "2024-01-14T10:00:00Z";
 
       render(
         <MemoryRouter>
           <AlertBanner
             maintenanceStartTime={startTime}
             faultyModels={faultyModels}
+            updatedAt={updatedAt}
           />
         </MemoryRouter>,
       );
