@@ -25,7 +25,7 @@ import { useReoTracking } from "#/hooks/use-reo-tracking";
 import { useSyncPostHogConsent } from "#/hooks/use-sync-posthog-consent";
 import { LOCAL_STORAGE_KEYS } from "#/utils/local-storage";
 import { EmailVerificationGuard } from "#/components/features/guards/email-verification-guard";
-import { MaintenanceBanner } from "#/components/features/maintenance/maintenance-banner";
+import { AlertBanner } from "#/components/features/alerts/alert-banner";
 import { cn, isMobileDevice } from "#/utils/utils";
 import { LoadingSpinner } from "#/components/shared/loading-spinner";
 import { useAppTitle } from "#/hooks/use-app-title";
@@ -219,8 +219,15 @@ export default function MainApp() {
       <Sidebar />
 
       <div className="flex flex-col w-full h-[calc(100%-50px)] md:h-full gap-3">
-        {config.data?.maintenance_start_time && (
-          <MaintenanceBanner startTime={config.data.maintenance_start_time} />
+        {(config.data?.maintenance_start_time ||
+          (config.data?.faulty_models &&
+            config.data.faulty_models.length > 0) ||
+          config.data?.error_message) && (
+          <AlertBanner
+            maintenanceStartTime={config.data?.maintenance_start_time}
+            faultyModels={config.data?.faulty_models}
+            errorMessage={config.data?.error_message}
+          />
         )}
         <div
           id="root-outlet"
