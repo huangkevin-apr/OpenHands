@@ -1,3 +1,4 @@
+import posthog from "posthog-js";
 import { create } from "zustand";
 
 interface ErrorMessageState {
@@ -5,7 +6,7 @@ interface ErrorMessageState {
 }
 
 interface ErrorMessageActions {
-  setErrorMessage: (message: string) => void;
+  setErrorMessage: (message: string, metadata?: Record<string, unknown>) => void;
   removeErrorMessage: () => void;
 }
 
@@ -18,10 +19,22 @@ const initialState: ErrorMessageState = {
 export const useErrorMessageStore = create<ErrorMessageStore>((set) => ({
   ...initialState,
 
-  setErrorMessage: (message: string) =>
+  setErrorMessage: (message: string, metadata?: Record<string, unknown>) => {
+    // Track error to PostHog
+    try {
+      const error = new Error(message);
+      posthog.captureException(error, {
+        error_source: "error_banner",
+        ...metadata,
+      });
+    } catch {
+      // Silently fail if PostHog is not initialized
+    }
+
     set(() => ({
       errorMessage: message,
-    })),
+    }));
+  },
 
   removeErrorMessage: () =>
     set(() => ({
