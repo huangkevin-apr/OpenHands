@@ -53,6 +53,10 @@
 - [ ] `src/api/conversation.utils.ts` (handles both, simplify after V0 removal)
 - [ ] `src/utils/git-status-mapper.ts` (V1→V0 mapping, remove after V0 gone)
 
+### Tests
+- [ ] `__tests__/components/features/chat/messages.test.tsx` (V0 Messages test)
+- [ ] `__tests__/components/event-message.test.tsx` (V0 EventMessage test)
+
 ---
 
 ## V1 Files to Rename (after V0 removal)
@@ -157,6 +161,8 @@ These exist only to route between V0 and V1 implementations:
 - [x] `src/components/features/chat/event-message-components/reject-event-message.tsx` (file-level)
 - [x] `src/components/features/chat/event-message-components/task-tracking-event-message.tsx` (file-level)
 - [x] `src/components/features/chat/event-message-components/user-assistant-event-message.tsx` (file-level)
+- [x] `__tests__/components/features/chat/messages.test.tsx` (file-level)
+- [x] `__tests__/components/event-message.test.tsx` (file-level)
 
 ---
 
