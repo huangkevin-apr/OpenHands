@@ -1,5 +1,3 @@
-# OpenHands
-# OpenHands
 
 This directory contains the core components of OpenHands.
 
