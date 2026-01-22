@@ -23,15 +23,13 @@ export const useErrorMessageStore = create<ErrorMessageStore>((set) => ({
   ...initialState,
 
   setErrorMessage: (message: string, metadata?: Record<string, unknown>) => {
-    // Track error to PostHog
-    try {
-      const error = new Error(message);
-      posthog.captureException(error, {
+    // Track error to PostHog if initialized
+    if (posthog.__loaded) {
+      posthog.capture("error_banner_displayed", {
+        error_message: message,
         error_source: "error_banner",
         ...metadata,
       });
-    } catch {
-      // Silently fail if PostHog is not initialized
     }
 
     set(() => ({
