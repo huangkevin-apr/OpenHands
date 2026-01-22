@@ -6,7 +6,10 @@ interface ErrorMessageState {
 }
 
 interface ErrorMessageActions {
-  setErrorMessage: (message: string, metadata?: Record<string, unknown>) => void;
+  setErrorMessage: (
+    message: string,
+    metadata?: Record<string, unknown>,
+  ) => void;
   removeErrorMessage: () => void;
 }
 
