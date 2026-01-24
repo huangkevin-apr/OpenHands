@@ -16,7 +16,7 @@ sequenceDiagram
 
     Note over User,AES: Phase 1: Conversation Creation
     User->>App: POST /api/conversations
-    App->>App: Authenticate user
+    Note right of App: Authenticate user
     App->>SS: Create sandbox
 
     Note over SS,Pool: Phase 2: Runtime Provisioning
@@ -24,7 +24,7 @@ sequenceDiagram
     RAPI->>Pool: Check for warm runtime
     alt Warm runtime available
         Pool-->>RAPI: Return warm runtime
-        RAPI->>RAPI: Assign to session
+        Note right of RAPI: Assign to session
     else No warm runtime
         RAPI->>Sandbox: Create new container
         Sandbox->>AS: Start Agent Server
@@ -42,16 +42,16 @@ sequenceDiagram
 
     Note over User,AES: Phase 4: User Sends Message
     User->>AS: WebSocket: SendMessageRequest
-    AS->>AS: Agent processes message
-    AS->>AS: LLM call → generate action
+    Note right of AS: Agent processes message
+    Note right of AS: LLM call → generate action
 
     Note over User,AES: Phase 5: Action Execution Loop
     loop Agent Loop
         AS->>AES: HTTP: Execute action
-        AES->>AES: Run in sandbox
+        Note right of AES: Run in sandbox
         AES-->>AS: Observation result
         AS->>User: WebSocket: Event update
-        AS->>AS: Update state, next action
+        Note right of AS: Update state, next action
     end
 
     Note over User,AES: Phase 6: Task Complete

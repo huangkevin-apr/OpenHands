@@ -18,15 +18,15 @@ sequenceDiagram
 
     User->>AS: WebSocket: User message
     AS->>Agent: Process message
-    Agent->>Agent: Build prompt from state
+    Note right of Agent: Build prompt from state
 
     Agent->>LLM: completion(messages, tools)
-    LLM->>LLM: Apply config (model, temp, etc.)
+    Note right of LLM: Apply config (model, temp, etc.)
 
     alt Using OpenHands Provider
         LLM->>Lite: litellm_proxy/{model}
         Lite->>Proxy: POST /chat/completions
-        Proxy->>Proxy: Auth, rate limit, routing
+        Note right of Proxy: Auth, rate limit, routing
         Proxy->>Provider: Forward request
         Provider-->>Proxy: Response
         Proxy-->>Lite: Response
@@ -37,20 +37,20 @@ sequenceDiagram
     end
 
     Lite-->>LLM: ModelResponse
-    LLM->>LLM: Track metrics (cost, tokens)
+    Note right of LLM: Track metrics (cost, tokens)
     LLM-->>Agent: Parsed response
 
-    Agent->>Agent: Parse action from response
+    Note right of Agent: Parse action from response
     AS->>User: WebSocket: Action event
 
     Note over User,AES: Action Execution
 
     AS->>AES: HTTP: Execute action
-    AES->>AES: Run command/edit file
+    Note right of AES: Run command/edit file
     AES-->>AS: Observation
     AS->>User: WebSocket: Observation event
 
-    Agent->>Agent: Update state
+    Note right of Agent: Update state
     Note over Agent: Loop continues...
 ```
 

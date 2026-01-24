@@ -16,13 +16,13 @@ sequenceDiagram
 
     Ext->>App: POST /api/integration/{service}/events
     App->>IntRouter: Route to service handler
-    IntRouter->>IntRouter: Verify signature<br/>(HMAC/signing secret)
+    Note right of IntRouter: Verify signature (HMAC)
 
     IntRouter->>Manager: Parse event payload
-    Manager->>Manager: Extract context<br/>(repo, issue, user)
-    Manager->>Manager: Map external user → OpenHands user<br/>(via stored tokens)
+    Note right of Manager: Extract context (repo, issue, user)
+    Note right of Manager: Map external user → OpenHands user
 
-    Manager->>Conv: Create conversation<br/>(with issue context)
+    Manager->>Conv: Create conversation (with issue context)
     Conv->>Sandbox: Provision sandbox
     Sandbox-->>Conv: Ready
 
