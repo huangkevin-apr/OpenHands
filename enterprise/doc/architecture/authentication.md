@@ -21,22 +21,22 @@ sequenceDiagram
     KC->>IdP: OAuth redirect
     User->>IdP: Authenticate
     IdP-->>KC: OAuth callback + tokens
-    Note right of KC: Create/update user session
+    Note over KC: Create/update user session
     KC-->>User: Redirect with auth code
     User->>App: Auth code
     App->>KC: Exchange code for tokens
     KC-->>App: Access token + Refresh token
-    Note right of App: Create signed JWT cookie
+    Note over App: Create signed JWT cookie
     App->>DB: Store/update user record
     App-->>User: Set keycloak_auth cookie
 
     Note over User,DB: Subsequent Requests
 
     User->>App: Request with cookie
-    Note right of App: Verify JWT signature
+    Note over App: Verify JWT signature
     App->>KC: Validate token (if needed)
     KC-->>App: Token valid
-    Note right of App: Extract user context
+    Note over App: Extract user context
     App-->>User: Authorized response
 ```
 
