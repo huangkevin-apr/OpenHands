@@ -120,9 +120,13 @@ class SaasSettingsStore(SettingsStore):
         return settings
 
     async def store(self, item: Settings):
+        if not item:
+            return None
+
+        # First, check if user exists and if migration is needed
+        user = None
+        user_settings = None
         with self.session_maker() as session:
-            if not item:
-                return None
             kwargs = item.model_dump(context={'expose_secrets': True})
             user = (
                 session.query(User)
@@ -132,21 +136,42 @@ class SaasSettingsStore(SettingsStore):
 
             if not user:
                 # Check if we need to migrate from user_settings
-                user_settings = None
-                with session_maker() as session:
-                    user_settings = self._get_user_settings_by_keycloak_id(
-                        self.user_id, session
-                    )
-                if user_settings:
-                    user = await UserStore.migrate_user(self.user_id, user_settings)
-                else:
-                    logger.error(f'User not found for ID {self.user_id}')
-                    return None
+                user_settings = self._get_user_settings_by_keycloak_id(
+                    self.user_id, session
+                )
+        # Session closed here - important to avoid deadlocks during migration
+
+        if not user and user_settings:
+            # Perform migration outside of any open session to avoid nested session deadlocks
+            from server.auth.token_manager import TokenManager
+
+            token_manager = TokenManager()
+            user_info = await token_manager.get_user_info_from_user_id(self.user_id)
+            user = await UserStore.migrate_user(self.user_id, user_settings, user_info)
+
+        if not user:
+            logger.error(f'User not found for ID {self.user_id}')
+            return None
+
+        org_id = user.current_org_id
+        # Check if provider is OpenHands and generate API key if needed
+        if self._is_openhands_provider(item):
+            await self._ensure_openhands_api_key(item, str(org_id))
+
+        # Now perform the actual store operation with a fresh session
+        with self.session_maker() as session:
+            # Re-fetch user within this session for proper session binding
+            user = (
+                session.query(User)
+                .options(joinedload(User.org_members))
+                .filter(User.id == uuid.UUID(self.user_id))
+            ).first()
+
+            if not user:
+                logger.error(f'User not found for ID {self.user_id} after migration')
+                return None
 
             org_id = user.current_org_id
-            # Check if provider is OpenHands and generate API key if needed
-            if self._is_openhands_provider(item):
-                await self._ensure_openhands_api_key(item, str(org_id))
             org_member = None
             for om in user.org_members:
                 if om.org_id == org_id:
@@ -161,6 +186,7 @@ class SaasSettingsStore(SettingsStore):
                 )
                 return None
 
+            kwargs = item.model_dump(context={'expose_secrets': True})
             for model in (user, org, org_member):
                 for key, value in kwargs.items():
                     if hasattr(model, key):

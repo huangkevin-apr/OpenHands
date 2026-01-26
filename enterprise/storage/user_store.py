@@ -306,6 +306,32 @@ class UserStore:
         event loop. If you're already in an async context, use get_user_by_id_async
         instead to avoid event loop conflicts.
         """
+        # First check if user already exists (fast path)
+        with session_maker() as session:
+            user = (
+                session.query(User)
+                .options(joinedload(User.org_members))
+                .filter(User.id == uuid.UUID(user_id))
+                .first()
+            )
+            if user:
+                return user
+        # Session closed here - important to avoid deadlocks during migration
+
+        # Acquire distributed lock for user creation/migration
+        while not call_async_from_sync(
+            UserStore._acquire_user_creation_lock, GENERAL_TIMEOUT, user_id
+        ):
+            # The user is already being created in another thread / process
+            logger.info(
+                'saas_settings_store:create_default_settings:waiting_for_lock',
+                extra={'user_id': user_id},
+            )
+            call_async_from_sync(
+                asyncio.sleep, GENERAL_TIMEOUT, _RETRY_LOAD_DELAY_SECONDS
+            )
+
+        # After acquiring lock, check again if user was created while waiting
         with session_maker() as session:
             user = (
                 session.query(User)
@@ -317,28 +343,6 @@ class UserStore:
                 return user
 
             # Check if we need to migrate from user_settings
-            while not call_async_from_sync(
-                UserStore._acquire_user_creation_lock, GENERAL_TIMEOUT, user_id
-            ):
-                # The user is already being created in another thread / process
-                logger.info(
-                    'saas_settings_store:create_default_settings:waiting_for_lock',
-                    extra={'user_id': user_id},
-                )
-                call_async_from_sync(
-                    asyncio.sleep, GENERAL_TIMEOUT, _RETRY_LOAD_DELAY_SECONDS
-                )
-
-            # Check for user again as migration could have happened while trying to get the lock.
-            user = (
-                session.query(User)
-                .options(joinedload(User.org_members))
-                .filter(User.id == uuid.UUID(user_id))
-                .first()
-            )
-            if user:
-                return user
-
             user_settings = (
                 session.query(UserSettings)
                 .filter(
@@ -347,23 +351,26 @@ class UserStore:
                 )
                 .first()
             )
-            if user_settings:
-                token_manager = TokenManager()
-                user_info = call_async_from_sync(
-                    token_manager.get_user_info_from_user_id,
-                    GENERAL_TIMEOUT,
-                    user_id,
-                )
-                user = call_async_from_sync(
-                    UserStore.migrate_user,
-                    GENERAL_TIMEOUT,
-                    user_id,
-                    user_settings,
-                    user_info,
-                )
-                return user
-            else:
-                return None
+        # Session closed here - important to avoid deadlocks during migration
+
+        if not user_settings:
+            return None
+
+        # Perform migration outside of any open session to avoid nested session deadlocks
+        token_manager = TokenManager()
+        user_info = call_async_from_sync(
+            token_manager.get_user_info_from_user_id,
+            GENERAL_TIMEOUT,
+            user_id,
+        )
+        user = call_async_from_sync(
+            UserStore.migrate_user,
+            GENERAL_TIMEOUT,
+            user_id,
+            user_settings,
+            user_info,
+        )
+        return user
 
     @staticmethod
     async def get_user_by_id_async(user_id: str) -> Optional[User]:
@@ -372,6 +379,28 @@ class UserStore:
         This is the preferred method when calling from an async context as it
         avoids event loop conflicts that can occur with the sync version.
         """
+        # First check if user already exists (fast path)
+        async with a_session_maker() as session:
+            result = await session.execute(
+                select(User)
+                .options(joinedload(User.org_members))
+                .filter(User.id == uuid.UUID(user_id))
+            )
+            user = result.scalars().first()
+            if user:
+                return user
+        # Session closed here - important to avoid deadlocks during migration
+
+        # Acquire distributed lock for user creation/migration
+        while not await UserStore._acquire_user_creation_lock(user_id):
+            # The user is already being created in another thread / process
+            logger.info(
+                'saas_settings_store:create_default_settings:waiting_for_lock',
+                extra={'user_id': user_id},
+            )
+            await asyncio.sleep(_RETRY_LOAD_DELAY_SECONDS)
+
+        # After acquiring lock, check again if user was created while waiting
         async with a_session_maker() as session:
             result = await session.execute(
                 select(User)
@@ -383,24 +412,6 @@ class UserStore:
                 return user
 
             # Check if we need to migrate from user_settings
-            while not await UserStore._acquire_user_creation_lock(user_id):
-                # The user is already being created in another thread / process
-                logger.info(
-                    'saas_settings_store:create_default_settings:waiting_for_lock',
-                    extra={'user_id': user_id},
-                )
-                await asyncio.sleep(_RETRY_LOAD_DELAY_SECONDS)
-
-            # Check for user again as migration could have happened while trying to get the lock.
-            result = await session.execute(
-                select(User)
-                .options(joinedload(User.org_members))
-                .filter(User.id == uuid.UUID(user_id))
-            )
-            user = result.scalars().first()
-            if user:
-                return user
-
             result = await session.execute(
                 select(UserSettings).filter(
                     UserSettings.keycloak_user_id == user_id,
@@ -408,17 +419,20 @@ class UserStore:
                 )
             )
             user_settings = result.scalars().first()
-            if user_settings:
-                token_manager = TokenManager()
-                user_info = await token_manager.get_user_info_from_user_id(user_id)
-                user = await UserStore.migrate_user(
-                    user_id,
-                    user_settings,
-                    user_info,
-                )
-                return user
-            else:
-                return None
+        # Session closed here - important to avoid deadlocks during migration
+
+        if not user_settings:
+            return None
+
+        # Perform migration outside of any open session to avoid nested session deadlocks
+        token_manager = TokenManager()
+        user_info = await token_manager.get_user_info_from_user_id(user_id)
+        user = await UserStore.migrate_user(
+            user_id,
+            user_settings,
+            user_info,
+        )
+        return user
 
     @staticmethod
     def list_users() -> list[User]:

@@ -4,10 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import SecretStr
 
-# Mock the database module before importing UserStore
-with patch('storage.database.engine'), patch('storage.database.a_engine'):
-    from storage.user import User
-    from storage.user_store import UserStore
+from storage.user import User
+from storage.user_store import UserStore
 
 from sqlalchemy.orm import configure_mappers
 
