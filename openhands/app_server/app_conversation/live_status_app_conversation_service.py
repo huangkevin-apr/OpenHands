@@ -7,7 +7,6 @@ import zipfile
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from time import time
 from typing import Any, AsyncGenerator, Sequence
 from uuid import UUID, uuid4
 
@@ -80,7 +79,7 @@ from openhands.experiments.experiment_manager import ExperimentManagerImpl
 from openhands.integrations.provider import ProviderType
 from openhands.sdk import Agent, AgentContext, LocalWorkspace
 from openhands.sdk.llm import LLM
-from openhands.sdk.secret import LookupSecret, StaticSecret
+from openhands.sdk.secret import LookupSecret, SecretValue, StaticSecret
 from openhands.sdk.utils.paging import page_iterator
 from openhands.sdk.workspace.remote.async_remote_workspace import AsyncRemoteWorkspace
 from openhands.server.types import AppMode
@@ -115,7 +114,6 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
     openhands_provider_base_url: str | None
     access_token_hard_timeout: timedelta | None
     app_mode: str | None = None
-    keycloak_auth_cookie: str | None = None
     tavily_api_key: str | None = None
 
     async def search_app_conversations(
@@ -239,7 +237,7 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
                 working_dir=sandbox_spec.working_dir,
             )
             async for updated_task in self.run_setup_scripts(
-                task, sandbox, remote_workspace
+                task, sandbox, remote_workspace, agent_server_url
             ):
                 yield updated_task
 
@@ -411,6 +409,16 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
             conversation_info = _conversation_info_type_adapter.validate_python(data)
             conversation_info = [c for c in conversation_info if c]
             return conversation_info
+        except httpx.HTTPStatusError as exc:
+            # The runtime API stops idle sandboxes all the time and they return a 503.
+            # This is normal and should not be logged.
+            if not exc.response or exc.response.status_code != 503:
+                _logger.exception(
+                    f'Error getting conversation status from sandbox {sandbox.id}',
+                    exc_info=True,
+                    stack_info=True,
+                )
+            return []
         except Exception:
             # Not getting a status is not a fatal error - we just mark the conversation as stopped
             _logger.exception(
@@ -467,9 +475,17 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
         self, task: AppConversationStartTask
     ) -> AsyncGenerator[AppConversationStartTask, None]:
         """Wait for sandbox to start and return info."""
-        # Get the sandbox
+        # Get or create the sandbox
         if not task.request.sandbox_id:
-            sandbox = await self.sandbox_service.start_sandbox()
+            # Convert conversation_id to hex string if present
+            sandbox_id_str = (
+                task.request.conversation_id.hex
+                if task.request.conversation_id is not None
+                else None
+            )
+            sandbox = await self.sandbox_service.start_sandbox(
+                sandbox_id=sandbox_id_str
+            )
             task.sandbox_id = sandbox.id
         else:
             sandbox_info = await self.sandbox_service.get_sandbox(
@@ -479,45 +495,34 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
                 raise SandboxError(f'Sandbox not found: {task.request.sandbox_id}')
             sandbox = sandbox_info
 
-        # Update the listener
+        # Update the listener with sandbox info
         task.status = AppConversationStartTaskStatus.WAITING_FOR_SANDBOX
         task.sandbox_id = sandbox.id
         yield task
 
+        # Resume if paused
         if sandbox.status == SandboxStatus.PAUSED:
             await self.sandbox_service.resume_sandbox(sandbox.id)
+
+        # Check for immediate error states
         if sandbox.status in (None, SandboxStatus.ERROR):
             raise SandboxError(f'Sandbox status: {sandbox.status}')
-        if sandbox.status == SandboxStatus.RUNNING:
-            # There are still bugs in the remote runtime - they report running while still just
-            # starting resulting in a race condition. Manually check that it is actually
-            # running.
-            if await self._check_agent_server_alive(sandbox):
-                return
-        if sandbox.status != SandboxStatus.STARTING:
+
+        # For non-STARTING/RUNNING states (except PAUSED which we just resumed), fail fast
+        if sandbox.status not in (
+            SandboxStatus.STARTING,
+            SandboxStatus.RUNNING,
+            SandboxStatus.PAUSED,
+        ):
             raise SandboxError(f'Sandbox not startable: {sandbox.id}')
 
-        start = time()
-        while time() - start <= self.sandbox_startup_timeout:
-            await asyncio.sleep(self.sandbox_startup_poll_frequency)
-            sandbox_info = await self.sandbox_service.get_sandbox(sandbox.id)
-            if sandbox_info is None:
-                raise SandboxError(f'Sandbox not found: {sandbox.id}')
-            if sandbox.status not in (SandboxStatus.STARTING, SandboxStatus.RUNNING):
-                raise SandboxError(f'Sandbox not startable: {sandbox.id}')
-            if sandbox_info.status == SandboxStatus.RUNNING:
-                # There are still bugs in the remote runtime - they report running while still just
-                # starting resulting in a race condition. Manually check that it is actually
-                # running.
-                if await self._check_agent_server_alive(sandbox_info):
-                    return
-        raise SandboxError(f'Sandbox failed to start: {sandbox.id}')
-
-    async def _check_agent_server_alive(self, sandbox_info: SandboxInfo) -> bool:
-        agent_server_url = self._get_agent_server_url(sandbox_info)
-        url = f'{agent_server_url.rstrip("/")}/alive'
-        response = await self.httpx_client.get(url)
-        return response.is_success
+        # Use shared wait_for_sandbox_running utility to poll for ready state
+        await self.sandbox_service.wait_for_sandbox_running(
+            sandbox.id,
+            timeout=self.sandbox_startup_timeout,
+            poll_interval=self.sandbox_startup_poll_frequency,
+            httpx_client=self.httpx_client,
+        )
 
     def _get_agent_server_url(self, sandbox: SandboxInfo) -> str:
         """Get agent server url for running sandbox."""
@@ -595,10 +600,6 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
                     expires_in=self.access_token_hard_timeout,
                 )
                 headers = {'X-Access-Token': access_token}
-
-                # Include keycloak_auth cookie in headers if app_mode is SaaS
-                if self.app_mode == 'saas' and self.keycloak_auth_cookie:
-                    headers['Cookie'] = f'keycloak_auth={self.keycloak_auth_cookie}'
 
                 secrets[secret_name] = LookupSecret(
                     url=self.web_url + '/api/v1/webhooks/secrets',
@@ -850,7 +851,7 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
         system_message_suffix: str | None,
         mcp_config: dict,
         condenser_max_size: int | None,
-        secrets: dict | None = None,
+        secrets: dict[str, SecretValue] | None = None,
     ) -> Agent:
         """Create an agent with appropriate tools and context based on agent type.
 
@@ -960,7 +961,7 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
         user: UserInfo,
         workspace: LocalWorkspace,
         initial_message: SendMessageRequest | None,
-        secrets: dict,
+        secrets: dict[str, SecretValue],
         sandbox: SandboxInfo,
         remote_workspace: AsyncRemoteWorkspace | None,
         selected_repository: str | None,
@@ -1129,7 +1130,7 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
         )
         if info is None:
             return None
-        for field_name in request.model_fields:
+        for field_name in AppConversationUpdateRequest.model_fields:
             value = getattr(request, field_name)
             setattr(info, field_name, value)
         info = await self.app_conversation_info_service.save_app_conversation_info(info)
@@ -1294,7 +1295,7 @@ class LiveStatusAppConversationService(AppConversationServiceBase):
             # Get all events for this conversation
             i = 0
             async for event in page_iterator(
-                self.event_service.search_events, conversation_id__eq=conversation_id
+                self.event_service.search_events, conversation_id=conversation_id
             ):
                 event_filename = f'event_{i:06d}_{event.id}.json'
                 event_path = os.path.join(temp_dir, event_filename)
@@ -1394,17 +1395,14 @@ class LiveStatusAppConversationServiceInjector(AppConversationServiceInjector):
                 if isinstance(sandbox_service, DockerSandboxService):
                     web_url = f'http://host.docker.internal:{sandbox_service.host_port}'
 
-            # Get app_mode and keycloak_auth cookie for SaaS mode
+            # Get app_mode for SaaS mode
             app_mode = None
-            keycloak_auth_cookie = None
             try:
                 from openhands.server.shared import server_config
 
                 app_mode = (
                     server_config.app_mode.value if server_config.app_mode else None
                 )
-                if request and server_config.app_mode == AppMode.SAAS:
-                    keycloak_auth_cookie = request.cookies.get('keycloak_auth')
             except (ImportError, AttributeError):
                 # If server_config is not available (e.g., in tests), continue without it
                 pass
@@ -1434,6 +1432,5 @@ class LiveStatusAppConversationServiceInjector(AppConversationServiceInjector):
                 openhands_provider_base_url=config.openhands_provider_base_url,
                 access_token_hard_timeout=access_token_hard_timeout,
                 app_mode=app_mode,
-                keycloak_auth_cookie=keycloak_auth_cookie,
                 tavily_api_key=tavily_api_key,
             )
