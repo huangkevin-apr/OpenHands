@@ -17,7 +17,11 @@ from server.logger import logger
 from sqlalchemy import select, text
 from sqlalchemy.orm import joinedload
 from storage.database import a_session_maker, session_maker
-from storage.encrypt_utils import decrypt_legacy_model
+from storage.encrypt_utils import (
+    decrypt_legacy_model,
+    encrypt_legacy_model,
+    encrypt_legacy_value,
+)
 from storage.org import Org
 from storage.org_member import OrgMember
 from storage.role_store import RoleStore
@@ -555,8 +559,21 @@ class UserStore:
                 {'org_id': user_uuid},
             )
 
-            # Step 8: Set already_migrated=False on user_settings
+            # Step 8: Set already_migrated=False on user_settings and encrypt fields
             user_settings.already_migrated = False
+
+            # Re-encrypt the sensitive fields before storing in the DB
+            encrypt_keys = [
+                'llm_api_key',
+                'llm_api_key_for_byor',
+                'search_api_key',
+                'sandbox_api_key',
+            ]
+            for key in encrypt_keys:
+                value = getattr(user_settings, key, None)
+                if value is not None:
+                    setattr(user_settings, key, encrypt_legacy_value(value))
+
             session.merge(user_settings)
 
             session.commit()
