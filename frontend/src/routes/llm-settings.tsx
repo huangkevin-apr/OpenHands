@@ -29,6 +29,7 @@ import { DEFAULT_SETTINGS } from "#/services/settings";
 import { getProviderId } from "#/utils/map-provider";
 import { DEFAULT_OPENHANDS_MODEL } from "#/utils/verified-models";
 import { useMe } from "#/hooks/query/use-me";
+import { usePermission } from "#/hooks/organizations/use-permissions";
 
 interface OpenHandsApiKeyHelpProps {
   testId: string;
@@ -71,9 +72,10 @@ function LlmSettingsScreen() {
   const { data: settings, isLoading, isFetching } = useSettings();
   const { data: config } = useConfig();
   const { data: me } = useMe();
+  const { hasPermission } = usePermission(me?.role ?? "member");
 
-  // Determine if user is read-only (users can only view, owners and admins can edit)
-  const isReadOnly = me?.role !== "owner" && me?.role !== "admin";
+  // Determine if user is read-only (members can only view, owners and admins can edit)
+  const isReadOnly = !hasPermission("edit_llm_settings");
 
   const [view, setView] = React.useState<"basic" | "advanced">("basic");
 

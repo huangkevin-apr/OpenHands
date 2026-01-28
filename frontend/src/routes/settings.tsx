@@ -9,6 +9,7 @@ import { SettingsLayout } from "#/components/features/settings/settings-layout";
 import { Typography } from "#/ui/typography";
 import { useSettingsNavItems } from "#/hooks/use-settings-nav-items";
 import { getActiveOrganizationUser } from "#/utils/org/permission-checks";
+import { rolePermissions } from "#/utils/org/permissions";
 
 const SAAS_ONLY_PATHS = [
   "/settings/user",
@@ -43,9 +44,10 @@ export const clientLoader = async ({ request }: Route.ClientLoaderArgs) => {
     return isSaas ? redirect("/settings/user") : redirect("/settings/mcp");
   }
 
-  // If billing is hidden and user tries to access the billing page
+  // If billing is hidden or user lacks permission to view billing
   if (
-    (config?.FEATURE_FLAGS?.HIDE_BILLING || userRole === "member") &&
+    (config?.FEATURE_FLAGS?.HIDE_BILLING ||
+      !rolePermissions[userRole].includes("view_billing")) &&
     pathname === "/settings/billing"
   ) {
     // Redirect to the first available settings page
