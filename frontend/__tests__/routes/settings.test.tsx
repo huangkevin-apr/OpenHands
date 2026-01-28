@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
 import SettingsScreen, { clientLoader } from "#/routes/settings";
 import OptionService from "#/api/option-service/option-service.api";
@@ -86,10 +86,8 @@ describe("Settings Screen", () => {
           path: "/settings/api-keys",
         },
         {
-          Component: () => (
-            <div data-testid="organization-members-settings-screen" />
-          ),
-          path: "/settings/organization-members",
+          Component: () => <div data-testid="org-members-settings-screen" />,
+          path: "/settings/org-members",
         },
         {
           Component: () => <div data-testid="organization-settings-screen" />,
@@ -281,7 +279,9 @@ describe("Settings Screen", () => {
     it("should not allow direct URL access to /settings/org when personal org is selected", async () => {
       // Set up orgs in query client so clientLoader can access them
       mockQueryClient.setQueryData(["organizations"], [MOCK_PERSONAL_ORG]);
-      mockQueryClient.setQueryData(["selected_organization"], "1");
+      // Use Zustand store instead of query client for selected org ID
+      // This is the correct pattern - the query client key ["selected_organization"] is never set in production
+      useSelectedOrganizationStore.setState({ organizationId: "1" });
 
       vi.spyOn(organizationService, "getOrganizations").mockResolvedValue([
         MOCK_PERSONAL_ORG,
@@ -309,41 +309,31 @@ describe("Settings Screen", () => {
       });
     });
 
-    it("should not allow direct URL access to /settings/organization-members when personal org is selected", async () => {
-      // Set up orgs in query client so clientLoader can access them
+    it("should not allow direct URL access to /settings/org-members when personal org is selected", async () => {
+      // Set up config and organizations in query client so clientLoader can access them
+      mockQueryClient.setQueryData(["config"], { APP_MODE: "saas" });
       mockQueryClient.setQueryData(["organizations"], [MOCK_PERSONAL_ORG]);
-      mockQueryClient.setQueryData(["selected_organization"], "1");
+      // Use Zustand store for selected org ID
+      useSelectedOrganizationStore.setState({ organizationId: "1" });
 
-      vi.spyOn(organizationService, "getOrganizations").mockResolvedValue([
-        MOCK_PERSONAL_ORG,
-      ]);
-      vi.spyOn(organizationService, "getMe").mockResolvedValue({
-        org_id: "1",
-        user_id: "99",
-        email: "me@test.com",
-        role: "admin",
-        llm_api_key: "**********",
-        max_iterations: 20,
-        llm_model: "gpt-4",
-        llm_api_key_for_byor: null,
-        llm_base_url: "https://api.openai.com",
-        status: "active",
-      });
+      // Act: Call clientLoader directly with the REAL route path (as defined in routes.ts)
+      const request = new Request("http://localhost/settings/org-members");
+      // @ts-expect-error - test only needs request and params, not full loader args
+      const result = await clientLoader({ request, params: {} });
 
-      renderSettingsScreen("/settings/organization-members");
-
-      // Should redirect away from organization-members settings for personal org
-      await waitFor(() => {
-        expect(
-          screen.queryByTestId("organization-members-settings-screen"),
-        ).not.toBeInTheDocument();
-      });
+      // Assert: Should redirect away from org-members settings for personal org
+      expect(result).not.toBeNull();
+      expect(result).toBeInstanceOf(Response);
+      const response = result as Response;
+      expect(response.status).toBe(302);
+      expect(response.headers.get("Location")).toBe("/settings");
     });
 
     it("should not allow direct URL access to /settings/billing when team org is selected", async () => {
       // Set up orgs in query client so clientLoader can access them
       mockQueryClient.setQueryData(["organizations"], [MOCK_TEAM_ORG_ACME]);
-      mockQueryClient.setQueryData(["selected_organization"], "2");
+      // Use Zustand store instead of query client for selected org ID
+      useSelectedOrganizationStore.setState({ organizationId: "2" });
 
       vi.spyOn(organizationService, "getOrganizations").mockResolvedValue([
         MOCK_TEAM_ORG_ACME,
@@ -450,6 +440,61 @@ describe("Settings Screen", () => {
       });
 
       getConfigSpy.mockRestore();
+    });
+  });
+
+  describe("clientLoader reads org ID from Zustand store", () => {
+    beforeEach(() => {
+      mockQueryClient.clear();
+      useSelectedOrganizationStore.setState({ organizationId: null });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("should redirect away from /settings/org when personal org is selected in Zustand store", async () => {
+      // Arrange: Set up config and organizations in query client
+      mockQueryClient.setQueryData(["config"], { APP_MODE: "saas" });
+      mockQueryClient.setQueryData(["organizations"], [MOCK_PERSONAL_ORG]);
+
+      // Set org ID ONLY in Zustand store (not in query client)
+      // This tests that clientLoader reads from the correct source
+      useSelectedOrganizationStore.setState({ organizationId: "1" });
+
+      // Act: Call clientLoader directly
+      const request = new Request("http://localhost/settings/org");
+      // @ts-expect-error - test only needs request and params, not full loader args
+      const result = await clientLoader({ request, params: {} });
+
+      // Assert: Should redirect away from org settings for personal org
+      expect(result).not.toBeNull();
+      // In React Router, redirect returns a Response object
+      expect(result).toBeInstanceOf(Response);
+      const response = result as Response;
+      expect(response.status).toBe(302);
+      expect(response.headers.get("Location")).toBe("/settings");
+    });
+
+    it("should redirect away from /settings/billing when team org is selected in Zustand store", async () => {
+      // Arrange: Set up config and organizations in query client
+      mockQueryClient.setQueryData(["config"], { APP_MODE: "saas" });
+      mockQueryClient.setQueryData(["organizations"], [MOCK_TEAM_ORG_ACME]);
+
+      // Set org ID ONLY in Zustand store (not in query client)
+      useSelectedOrganizationStore.setState({ organizationId: "2" });
+
+      // Act: Call clientLoader directly
+      const request = new Request("http://localhost/settings/billing");
+      // @ts-expect-error - test only needs request and params, not full loader args
+      const result = await clientLoader({ request, params: {} });
+
+      // Assert: Should redirect away from billing settings for team org
+      expect(result).not.toBeNull();
+      expect(result).toBeInstanceOf(Response);
+      const response = result as Response;
+      expect(response.status).toBe(302);
+      expect(response.headers.get("Location")).toBe("/settings/user");
     });
   });
 });
