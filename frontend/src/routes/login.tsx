@@ -17,8 +17,10 @@ export default function LoginPage() {
   const {
     emailVerified,
     hasDuplicatedEmail,
+    recaptchaBlocked,
     emailVerificationModalOpen,
     setEmailVerificationModalOpen,
+    userId,
   } = useEmailVerification();
 
   const gitHubAuthUrl = useGitHubAuthUrl({
@@ -67,6 +69,7 @@ export default function LoginPage() {
           providersConfigured={config.data?.PROVIDERS_CONFIGURED}
           emailVerified={emailVerified}
           hasDuplicatedEmail={hasDuplicatedEmail}
+          recaptchaBlocked={recaptchaBlocked}
         />
       </main>
 
@@ -75,6 +78,7 @@ export default function LoginPage() {
           onClose={() => {
             setEmailVerificationModalOpen(false);
           }}
+          userId={userId}
         />
       )}
     </>

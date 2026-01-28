@@ -5,6 +5,7 @@ import {
   Outlet,
   useNavigate,
   useLocation,
+  useSearchParams,
 } from "react-router";
 import { useTranslation } from "react-i18next";
 import { I18nKey } from "#/i18n/declaration";
@@ -16,7 +17,6 @@ import { ReauthModal } from "#/components/features/waitlist/reauth-modal";
 import { AnalyticsConsentFormModal } from "#/components/features/analytics/analytics-consent-form-modal";
 import { useSettings } from "#/hooks/query/use-settings";
 import { useMigrateUserConsent } from "#/hooks/use-migrate-user-consent";
-import { useBalance } from "#/hooks/query/use-balance";
 import { SetupPaymentModal } from "#/components/features/payment/setup-payment-modal";
 import { displaySuccessToast } from "#/utils/custom-toast-handlers";
 import { useIsOnTosPage } from "#/hooks/use-is-on-tos-page";
@@ -68,9 +68,9 @@ export default function MainApp() {
   const appTitle = useAppTitle();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const [searchParams] = useSearchParams();
   const isOnTosPage = useIsOnTosPage();
   const { data: settings } = useSettings();
-  const { error } = useBalance();
   const { migrateUserConsent } = useMigrateUserConsent();
   const { t } = useTranslation();
 
@@ -131,14 +131,6 @@ export default function MainApp() {
     }
   }, [settings?.is_new_user, config.data?.APP_MODE]);
 
-  React.useEffect(() => {
-    // Don't do any redirects when on TOS page
-    // Don't allow users to use the app if it 402s
-    if (!isOnTosPage && error?.status === 402 && pathname !== "/") {
-      navigate("/");
-    }
-  }, [error?.status, pathname, isOnTosPage]);
-
   // Function to check if login method exists in local storage
   const checkLoginMethodExists = React.useCallback(() => {
     // Only check localStorage if we're in a browser environment
@@ -184,7 +176,6 @@ export default function MainApp() {
   const shouldRedirectToLogin =
     config.isLoading ||
     isAuthLoading ||
-    isFetchingAuth ||
     (!isAuthed &&
       !isAuthError &&
       !isOnTosPage &&
@@ -193,13 +184,18 @@ export default function MainApp() {
 
   React.useEffect(() => {
     if (shouldRedirectToLogin) {
-      const returnTo = pathname !== "/" ? pathname : "";
-      const loginUrl = returnTo
-        ? `/login?returnTo=${encodeURIComponent(returnTo)}`
+      // Include search params in returnTo to preserve query string (e.g., user_code for device OAuth)
+      const searchString = searchParams.toString();
+      let fullPath = "";
+      if (pathname !== "/") {
+        fullPath = searchString ? `${pathname}?${searchString}` : pathname;
+      }
+      const loginUrl = fullPath
+        ? `/login?returnTo=${encodeURIComponent(fullPath)}`
         : "/login";
       navigate(loginUrl, { replace: true });
     }
-  }, [shouldRedirectToLogin, pathname, navigate]);
+  }, [shouldRedirectToLogin, pathname, searchParams, navigate]);
 
   if (shouldRedirectToLogin) {
     return (
@@ -221,7 +217,7 @@ export default function MainApp() {
     <div
       data-testid="root-layout"
       className={cn(
-        "h-screen lg:min-w-[1024px] flex flex-col md:flex-row bg-base",
+        "h-screen lg:min-w-5xl flex flex-col md:flex-row bg-base",
         pathname === "/" ? "p-0" : "p-0 md:p-3 md:pl-0",
         isMobileDevice() && "overflow-hidden",
       )}
