@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { AxiosError } from "axios";
 import { useSearchParams } from "react-router";
 import { ModelSelector } from "#/components/shared/modals/settings/model-selector";
+import { createPermissionGuard } from "#/utils/org/permission-guard";
 import { organizeModelsAndProviders } from "#/utils/organize-models-and-providers";
 import { useAIConfigOptions } from "#/hooks/query/use-ai-config-options";
 import { useSettings } from "#/hooks/query/use-settings";
@@ -778,5 +779,9 @@ function LlmSettingsScreen() {
     </div>
   );
 }
+
+// Route protection: all roles have view_llm_settings, but this guard ensures
+// consistency with other routes and allows future restrictions if needed
+export const clientLoader = createPermissionGuard("view_llm_settings");
 
 export default LlmSettingsScreen;

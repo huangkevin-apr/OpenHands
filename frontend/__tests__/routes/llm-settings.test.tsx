@@ -1839,3 +1839,14 @@ describe("Role-based permissions", () => {
     });
   });
 });
+
+describe("clientLoader permission checks", () => {
+  it("should export a clientLoader for route protection", async () => {
+    // This test verifies the clientLoader is exported for consistency with other routes
+    // Note: All roles have view_llm_settings permission, so this guard ensures
+    // the route is protected and can be restricted in the future if needed
+    const { clientLoader } = await import("#/routes/llm-settings");
+    expect(clientLoader).toBeDefined();
+    expect(typeof clientLoader).toBe("function");
+  });
+});
