@@ -41,6 +41,9 @@ ROLE_CHECK_ENABLED = os.getenv('ROLE_CHECK_ENABLED', 'false').lower() in (
 
 DUPLICATE_EMAIL_CHECK = os.getenv('DUPLICATE_EMAIL_CHECK', 'true') in ('1', 'true')
 
+# Feature flag to disable signup for specific identity providers
+DISABLE_SIGNUP_BITBUCKET = os.getenv('DISABLE_SIGNUP_BITBUCKET', 'false') == 'true'
+
 # reCAPTCHA Enterprise
 RECAPTCHA_PROJECT_ID = os.getenv('RECAPTCHA_PROJECT_ID', '').strip()
 RECAPTCHA_SITE_KEY = os.getenv('RECAPTCHA_SITE_KEY', '').strip()

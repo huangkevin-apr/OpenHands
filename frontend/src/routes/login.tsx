@@ -18,6 +18,7 @@ export default function LoginPage() {
     emailVerified,
     hasDuplicatedEmail,
     recaptchaBlocked,
+    signupDisabledProvider,
     emailVerificationModalOpen,
     setEmailVerificationModalOpen,
     userId,
@@ -70,6 +71,7 @@ export default function LoginPage() {
           emailVerified={emailVerified}
           hasDuplicatedEmail={hasDuplicatedEmail}
           recaptchaBlocked={recaptchaBlocked}
+          signupDisabledProvider={signupDisabledProvider}
         />
       </main>
 

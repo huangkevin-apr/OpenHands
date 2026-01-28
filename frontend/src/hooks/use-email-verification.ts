@@ -15,6 +15,7 @@ import { useResendEmailVerification } from "#/hooks/mutation/use-resend-email-ve
  *   - setEmailVerified: function to control email verification status
  *   - hasDuplicatedEmail: boolean state for duplicate email error status
  *   - recaptchaBlocked: boolean state for reCAPTCHA blocked error status
+ *   - signupDisabledProvider: string | null for the provider where signup is disabled
  *   - userId: string | null for the user ID from the redirect URL
  *   - resendEmailVerification: function to resend verification email
  *   - isResendingVerification: boolean indicating if resend is in progress
@@ -29,6 +30,9 @@ export function useEmailVerification() {
   const [emailVerified, setEmailVerified] = React.useState(false);
   const [hasDuplicatedEmail, setHasDuplicatedEmail] = React.useState(false);
   const [recaptchaBlocked, setRecaptchaBlocked] = React.useState(false);
+  const [signupDisabledProvider, setSignupDisabledProvider] = React.useState<
+    string | null
+  >(null);
   const [userId, setUserId] = React.useState<string | null>(null);
   const [lastSentTimestamp, setLastSentTimestamp] = React.useState<
     number | null
@@ -85,6 +89,13 @@ export function useEmailVerification() {
       shouldUpdate = true;
     }
 
+    const signupDisabledParam = searchParams.get("signup_disabled");
+    if (signupDisabledParam) {
+      setSignupDisabledProvider(signupDisabledParam);
+      searchParams.delete("signup_disabled");
+      shouldUpdate = true;
+    }
+
     if (userIdParam) {
       setUserId(userIdParam);
       searchParams.delete("user_id");
@@ -136,6 +147,7 @@ export function useEmailVerification() {
     setEmailVerified,
     hasDuplicatedEmail,
     recaptchaBlocked,
+    signupDisabledProvider,
     userId,
     resendEmailVerification: resendEmailVerificationMutation.mutate,
     isResendingVerification: resendEmailVerificationMutation.isPending,

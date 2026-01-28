@@ -12127,6 +12127,22 @@
     "de": "Zugriff aufgrund verdächtiger Aktivitäten blockiert. Wenn Sie glauben, dass dies ein Fehler ist, wenden Sie sich bitte an contact@openhands.dev.",
     "uk": "Доступ заблоковано через підозрілу активність. Якщо ви вважаєте, що це помилка, зверніться до contact@openhands.dev за допомогою."
   },
+  "AUTH$SIGNUP_DISABLED_FOR_PROVIDER": {
+    "en": "New account sign-up is currently disabled for {{provider}}. Please use a different sign-in method or contact support if you need assistance.",
+    "ja": "{{provider}}での新規アカウント登録は現在無効になっています。別のサインイン方法を使用するか、サポートにお問い合わせください。",
+    "zh-CN": "{{provider}}的新账户注册目前已禁用。请使用其他登录方式或联系支持以获取帮助。",
+    "zh-TW": "{{provider}}的新帳戶註冊目前已停用。請使用其他登入方式或聯繫支援以獲取協助。",
+    "ko-KR": "{{provider}}를 통한 신규 계정 가입이 현재 비활성화되어 있습니다. 다른 로그인 방법을 사용하거나 지원팀에 문의하세요.",
+    "no": "Registrering av nye kontoer er for øyeblikket deaktivert for {{provider}}. Bruk en annen påloggingsmetode eller kontakt support hvis du trenger hjelp.",
+    "it": "La registrazione di nuovi account è attualmente disabilitata per {{provider}}. Utilizza un altro metodo di accesso o contatta l'assistenza se hai bisogno di aiuto.",
+    "pt": "A criação de novas contas está atualmente desativada para {{provider}}. Por favor, use outro método de login ou entre em contato com o suporte se precisar de ajuda.",
+    "es": "El registro de nuevas cuentas está actualmente deshabilitado para {{provider}}. Por favor, use otro método de inicio de sesión o contacte con soporte si necesita ayuda.",
+    "ar": "تسجيل الحسابات الجديدة معطل حالياً لـ {{provider}}. يرجى استخدام طريقة تسجيل دخول أخرى أو الاتصال بالدعم إذا كنت بحاجة إلى مساعدة.",
+    "fr": "L'inscription de nouveaux comptes est actuellement désactivée pour {{provider}}. Veuillez utiliser une autre méthode de connexion ou contacter le support si vous avez besoin d'aide.",
+    "tr": "{{provider}} için yeni hesap kaydı şu anda devre dışı bırakılmıştır. Lütfen farklı bir giriş yöntemi kullanın veya yardıma ihtiyacınız varsa destekle iletişime geçin.",
+    "de": "Die Registrierung neuer Konten ist derzeit für {{provider}} deaktiviert. Bitte verwenden Sie eine andere Anmeldemethode oder wenden Sie sich an den Support, wenn Sie Hilfe benötigen.",
+    "uk": "Реєстрація нових облікових записів наразі вимкнена для {{provider}}. Будь ласка, скористайтеся іншим методом входу або зверніться до служби підтримки, якщо вам потрібна допомога."
+  },
   "AUTH$LETS_GET_STARTED": {
     "en": "Let's get started",
     "ja": "始めましょう",

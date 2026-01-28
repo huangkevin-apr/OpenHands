@@ -9,6 +9,7 @@ import requests  # type: ignore
 from fastapi import HTTPException
 from server.auth.constants import (
     BITBUCKET_APP_CLIENT_ID,
+    DISABLE_SIGNUP_BITBUCKET,
     ENABLE_ENTERPRISE_SSO,
     ENABLE_JIRA,
     ENABLE_JIRA_DC,
@@ -175,6 +176,7 @@ class SaaSServerConfig(ServerConfig):
                 'ENABLE_JIRA': self.enable_jira,
                 'ENABLE_JIRA_DC': self.enable_jira_dc,
                 'ENABLE_LINEAR': self.enable_linear,
+                'DISABLE_SIGNUP_BITBUCKET': DISABLE_SIGNUP_BITBUCKET,
             },
             'PROVIDERS_CONFIGURED': providers_configured,
         }

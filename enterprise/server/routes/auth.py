@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import SecretStr
 from server.auth.auth_utils import user_verifier
 from server.auth.constants import (
+    DISABLE_SIGNUP_BITBUCKET,
     KEYCLOAK_CLIENT_ID,
     KEYCLOAK_REALM_NAME,
     KEYCLOAK_SERVER_URL_EXT,
@@ -177,7 +178,26 @@ async def keycloak_callback(
     email = user_info.get('email')
     user_id = user_info['sub']
     user = await UserStore.get_user_by_id_async(user_id)
+
+    # Get the identity provider from user_info
+    idp_raw: str = user_info.get('identity_provider', ProviderType.GITHUB.value)
+    # Extract IDP name (may contain ":oidc" or ":saml" suffix)
+    idp_name = idp_raw.rsplit(':', 1)[0] if ':' in idp_raw else idp_raw
+
+    # Check if signup is disabled for this provider (only for new users)
     if not user:
+        if DISABLE_SIGNUP_BITBUCKET and idp_name == ProviderType.BITBUCKET.value:
+            logger.warning(
+                'signup_disabled_for_provider',
+                extra={
+                    'user_id': user_id,
+                    'email': email,
+                    'idp': idp_name,
+                },
+            )
+            error_url = f'{request.base_url}login?signup_disabled=bitbucket'
+            return RedirectResponse(error_url, status_code=302)
+
         user = await UserStore.create_user(user_id, user_info)
 
     if not user:

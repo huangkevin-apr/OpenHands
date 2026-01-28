@@ -21,6 +21,7 @@ export interface LoginContentProps {
   emailVerified?: boolean;
   hasDuplicatedEmail?: boolean;
   recaptchaBlocked?: boolean;
+  signupDisabledProvider?: string | null;
 }
 
 export function LoginContent({
@@ -31,6 +32,7 @@ export function LoginContent({
   emailVerified = false,
   hasDuplicatedEmail = false,
   recaptchaBlocked = false,
+  signupDisabledProvider = null,
 }: LoginContentProps) {
   const { t } = useTranslation();
   const { trackLoginButtonClick } = useTracking();
@@ -115,7 +117,8 @@ export function LoginContent({
   const showBitbucket =
     providersConfigured &&
     providersConfigured.length > 0 &&
-    providersConfigured.includes("bitbucket");
+    providersConfigured.includes("bitbucket") &&
+    !config?.FEATURE_FLAGS?.DISABLE_SIGNUP_BITBUCKET;
 
   const noProvidersConfigured =
     !providersConfigured || providersConfigured.length === 0;
@@ -149,6 +152,13 @@ export function LoginContent({
       {recaptchaBlocked && (
         <p className="text-sm text-danger text-center max-w-125">
           {t(I18nKey.AUTH$RECAPTCHA_BLOCKED)}
+        </p>
+      )}
+      {signupDisabledProvider && (
+        <p className="text-sm text-danger text-center max-w-125">
+          {t(I18nKey.AUTH$SIGNUP_DISABLED_FOR_PROVIDER, {
+            provider: signupDisabledProvider.charAt(0).toUpperCase() + signupDisabledProvider.slice(1),
+          })}
         </p>
       )}
 
