@@ -180,9 +180,10 @@ class TestGetSessionExpiredMessage:
         assert 'session has expired' in result
 
     def test_message_with_username_contains_login_instruction(self):
-        """Test that the message contains login instruction."""
+        """Test that the message contains log out and login instruction."""
         result = get_session_expired_message('testuser')
-        assert 'login again' in result
+        assert 'log out' in result
+        assert 'log in again' in result
 
     def test_message_with_username_contains_host_url(self):
         """Test that the message contains the OpenHands Cloud URL."""
@@ -205,9 +206,10 @@ class TestGetSessionExpiredMessage:
         assert 'session has expired' in result
 
     def test_message_without_username_contains_login_instruction(self):
-        """Test that the message without username contains login instruction."""
+        """Test that the message without username contains log out and login instruction."""
         result = get_session_expired_message()
-        assert 'login again' in result
+        assert 'log out' in result
+        assert 'log in again' in result
 
     def test_message_without_username_contains_host_url(self):
         """Test that the message without username contains the OpenHands Cloud URL."""
