@@ -27,6 +27,7 @@ from storage.org_member import OrgMember
 from storage.role_store import RoleStore
 from storage.user import User
 from storage.user_settings import UserSettings
+from utils.identity import resolve_display_name
 
 from openhands.utils.async_utils import GENERAL_TIMEOUT, call_async_from_sync
 
@@ -53,7 +54,7 @@ class UserStore:
             org = Org(
                 id=uuid.UUID(user_id),
                 name=f'user_{user_id}_org',
-                contact_name=user_info['preferred_username'],
+                contact_name=resolve_display_name(user_info) or user_info.get('preferred_username', ''),
                 contact_email=user_info['email'],
                 v1_enabled=True,
             )

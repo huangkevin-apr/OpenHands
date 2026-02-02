@@ -4,10 +4,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import SecretStr
 
-# Mock the database module before importing UserStore
-with patch('storage.database.engine'), patch('storage.database.a_engine'):
-    from storage.user import User
-    from storage.user_store import UserStore
+# Database connection is lazy (no module-level engines), so no patching needed
+from storage.org import Org
+from storage.user import User
+from storage.user_store import UserStore
 
 from sqlalchemy.orm import configure_mappers
 
@@ -162,3 +162,107 @@ def test_get_kwargs_from_settings():
     assert 'enable_sound_notifications' in kwargs
     # Should not include fields that don't exist in User model
     assert 'llm_api_key' not in kwargs
+
+
+# --- Tests for contact_name resolution in create_user() ---
+# create_user() should use resolve_display_name() to populate contact_name
+# from Keycloak name claims, falling back to preferred_username only when
+# no real name is available. This ensures Org records store the user's
+# actual display name for use in UI and analytics.
+
+
+@pytest.mark.asyncio
+async def test_create_user_contact_name_uses_name_claim():
+    """When user_info has a 'name' claim, create_user() should use it for contact_name."""
+    user_id = str(uuid.uuid4())
+    user_info = {
+        'preferred_username': 'jdoe',
+        'email': 'jdoe@example.com',
+        'name': 'John Doe',
+    }
+
+    mock_session = MagicMock()
+    mock_sm = MagicMock()
+    mock_sm.return_value.__enter__ = MagicMock(return_value=mock_session)
+    mock_sm.return_value.__exit__ = MagicMock(return_value=False)
+
+    with (
+        patch('storage.user_store.session_maker', mock_sm),
+        patch.object(
+            UserStore,
+            'create_default_settings',
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+    ):
+        result = await UserStore.create_user(user_id, user_info)
+
+    assert result is None  # create_default_settings returned None
+    # The Org should have been added to the session with the real display name
+    org = mock_session.add.call_args_list[0][0][0]
+    assert isinstance(org, Org)
+    assert org.contact_name == 'John Doe'
+
+
+@pytest.mark.asyncio
+async def test_create_user_contact_name_uses_given_family_names():
+    """When only given_name and family_name are present, create_user() should combine them."""
+    user_id = str(uuid.uuid4())
+    user_info = {
+        'preferred_username': 'jsmith',
+        'email': 'jsmith@example.com',
+        'given_name': 'Jane',
+        'family_name': 'Smith',
+    }
+
+    mock_session = MagicMock()
+    mock_sm = MagicMock()
+    mock_sm.return_value.__enter__ = MagicMock(return_value=mock_session)
+    mock_sm.return_value.__exit__ = MagicMock(return_value=False)
+
+    with (
+        patch('storage.user_store.session_maker', mock_sm),
+        patch.object(
+            UserStore,
+            'create_default_settings',
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+    ):
+        result = await UserStore.create_user(user_id, user_info)
+
+    assert result is None
+    org = mock_session.add.call_args_list[0][0][0]
+    assert isinstance(org, Org)
+    assert org.contact_name == 'Jane Smith'
+
+
+@pytest.mark.asyncio
+async def test_create_user_contact_name_falls_back_to_username():
+    """When no name claims exist, create_user() should fall back to preferred_username."""
+    user_id = str(uuid.uuid4())
+    user_info = {
+        'preferred_username': 'jdoe',
+        'email': 'jdoe@example.com',
+    }
+
+    mock_session = MagicMock()
+    mock_sm = MagicMock()
+    mock_sm.return_value.__enter__ = MagicMock(return_value=mock_session)
+    mock_sm.return_value.__exit__ = MagicMock(return_value=False)
+
+    with (
+        patch('storage.user_store.session_maker', mock_sm),
+        patch.object(
+            UserStore,
+            'create_default_settings',
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+    ):
+        result = await UserStore.create_user(user_id, user_info)
+
+    assert result is None
+    org = mock_session.add.call_args_list[0][0][0]
+    assert isinstance(org, Org)
+    assert org.contact_name == 'jdoe'
