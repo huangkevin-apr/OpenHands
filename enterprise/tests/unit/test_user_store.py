@@ -387,3 +387,93 @@ async def test_create_user_contact_name_falls_back_to_username():
     org = mock_session.add.call_args_list[0][0][0]
     assert isinstance(org, Org)
     assert org.contact_name == 'jdoe'
+
+
+# --- Tests for backfill_contact_name on login ---
+# Existing users created before the resolve_display_name fix may have
+# username-style values in contact_name. The backfill updates these to
+# the user's real display name when they next log in, but preserves
+# custom values set via the PATCH endpoint.
+
+
+def test_backfill_contact_name_updates_when_matches_preferred_username(session_maker):
+    """When contact_name matches preferred_username and a real name is available, update it."""
+    user_id = str(uuid.uuid4())
+    # Create org with username-style contact_name (as create_user used to store)
+    with session_maker() as session:
+        org = Org(
+            id=uuid.UUID(user_id),
+            name=f'user_{user_id}_org',
+            contact_name='jdoe',
+            contact_email='jdoe@example.com',
+        )
+        session.add(org)
+        session.commit()
+
+    user_info = {
+        'preferred_username': 'jdoe',
+        'name': 'John Doe',
+    }
+
+    with patch('storage.user_store.session_maker', session_maker):
+        UserStore.backfill_contact_name(user_id, user_info)
+
+    with session_maker() as session:
+        org = session.query(Org).filter(Org.id == uuid.UUID(user_id)).first()
+        assert org.contact_name == 'John Doe'
+
+
+def test_backfill_contact_name_updates_when_matches_username(session_maker):
+    """When contact_name matches username (migrate_user legacy) and a real name is available, update it."""
+    user_id = str(uuid.uuid4())
+    # Create org with username-style contact_name (as migrate_user used to store)
+    with session_maker() as session:
+        org = Org(
+            id=uuid.UUID(user_id),
+            name=f'user_{user_id}_org',
+            contact_name='jdoe',
+            contact_email='jdoe@example.com',
+        )
+        session.add(org)
+        session.commit()
+
+    user_info = {
+        'username': 'jdoe',
+        'given_name': 'Jane',
+        'family_name': 'Doe',
+    }
+
+    with patch('storage.user_store.session_maker', session_maker):
+        UserStore.backfill_contact_name(user_id, user_info)
+
+    with session_maker() as session:
+        org = session.query(Org).filter(Org.id == uuid.UUID(user_id)).first()
+        assert org.contact_name == 'Jane Doe'
+
+
+def test_backfill_contact_name_preserves_custom_value(session_maker):
+    """When contact_name differs from both username fields, do not overwrite it."""
+    user_id = str(uuid.uuid4())
+    # Org has a custom contact_name set via PATCH endpoint
+    with session_maker() as session:
+        org = Org(
+            id=uuid.UUID(user_id),
+            name=f'user_{user_id}_org',
+            contact_name='Custom Corp Name',
+            contact_email='jdoe@example.com',
+        )
+        session.add(org)
+        session.commit()
+
+    user_info = {
+        'preferred_username': 'jdoe',
+        'username': 'jdoe',
+        'name': 'John Doe',
+    }
+
+    with patch('storage.user_store.session_maker', session_maker):
+        UserStore.backfill_contact_name(user_id, user_info)
+
+    with session_maker() as session:
+        org = session.query(Org).filter(Org.id == uuid.UUID(user_id)).first()
+        assert org.contact_name == 'Custom Corp Name'

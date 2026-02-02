@@ -757,6 +757,30 @@ class UserStore:
         with session_maker() as session:
             return session.query(User).all()
 
+    @staticmethod
+    def backfill_contact_name(user_id: str, user_info: dict) -> None:
+        """Update contact_name on the personal org if it still has a username-style value.
+
+        Called during login to gradually fix existing users whose contact_name
+        was stored as their username (before the resolve_display_name fix).
+        Preserves custom values that were set via the PATCH endpoint.
+        """
+        real_name = resolve_display_name(user_info)
+        if not real_name:
+            return
+
+        preferred_username = user_info.get('preferred_username', '')
+        username = user_info.get('username', '')
+
+        with session_maker() as session:
+            org = session.query(Org).filter(Org.id == uuid.UUID(user_id)).first()
+            if not org:
+                return
+
+            if org.contact_name in (preferred_username, username):
+                org.contact_name = real_name
+                session.commit()
+
     # Prevent circular imports
     from typing import TYPE_CHECKING
 
