@@ -54,7 +54,8 @@ class UserStore:
             org = Org(
                 id=uuid.UUID(user_id),
                 name=f'user_{user_id}_org',
-                contact_name=resolve_display_name(user_info) or user_info.get('preferred_username', ''),
+                contact_name=resolve_display_name(user_info)
+                or user_info.get('preferred_username', ''),
                 contact_email=user_info['email'],
                 v1_enabled=True,
             )
@@ -176,7 +177,8 @@ class UserStore:
                 id=uuid.UUID(user_id),
                 name=f'user_{user_id}_org',
                 org_version=user_settings.user_version,
-                contact_name=resolve_display_name(user_info) or user_info.get('username', ''),
+                contact_name=resolve_display_name(user_info)
+                or user_info.get('username', ''),
                 contact_email=user_info['email'],
             )
             session.add(org)

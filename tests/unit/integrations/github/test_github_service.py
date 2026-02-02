@@ -514,9 +514,7 @@ async def test_get_user_falls_back_to_user_emails():
     ]
 
     with (
-        patch.object(
-            service, '_make_request', return_value=(mock_user_response, {})
-        ),
+        patch.object(service, '_make_request', return_value=(mock_user_response, {})),
         patch.object(service, 'get_user_emails', return_value=mock_emails),
     ):
         user = await service.get_user()
@@ -539,9 +537,7 @@ async def test_get_user_handles_user_emails_api_failure():
     }
 
     with (
-        patch.object(
-            service, '_make_request', return_value=(mock_user_response, {})
-        ),
+        patch.object(service, '_make_request', return_value=(mock_user_response, {})),
         patch.object(
             service,
             'get_user_emails',

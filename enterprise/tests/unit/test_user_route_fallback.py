@@ -113,9 +113,7 @@ async def test_fallback_user_name_is_none_when_no_name_claims(
 
 
 @pytest.mark.asyncio
-async def test_fallback_user_includes_company_claim(
-    mock_token_manager, mock_check_idp
-):
+async def test_fallback_user_includes_company_claim(mock_token_manager, mock_check_idp):
     """When Keycloak provides a 'company' claim, include it in the User."""
     from server.routes.user import saas_get_user
 

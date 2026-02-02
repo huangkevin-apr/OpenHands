@@ -3,13 +3,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import SecretStr
+from sqlalchemy.orm import configure_mappers
 
 # Database connection is lazy (no module-level engines), so no patching needed
 from storage.org import Org
 from storage.user import User
 from storage.user_store import UserStore
-
-from sqlalchemy.orm import configure_mappers
 
 from openhands.storage.data_models.settings import Settings
 
@@ -197,7 +196,10 @@ async def test_migrate_user_contact_name_uses_name_claim():
 
     with (
         patch('storage.user_store.session_maker', mock_sm),
-        patch('storage.user_store.decrypt_legacy_model', return_value={'keycloak_user_id': user_id}),
+        patch(
+            'storage.user_store.decrypt_legacy_model',
+            return_value={'keycloak_user_id': user_id},
+        ),
         patch('storage.user_store.UserSettings'),
         patch(
             'storage.lite_llm_manager.LiteLlmManager.migrate_entries',
@@ -234,7 +236,10 @@ async def test_migrate_user_contact_name_uses_given_family_names():
 
     with (
         patch('storage.user_store.session_maker', mock_sm),
-        patch('storage.user_store.decrypt_legacy_model', return_value={'keycloak_user_id': user_id}),
+        patch(
+            'storage.user_store.decrypt_legacy_model',
+            return_value={'keycloak_user_id': user_id},
+        ),
         patch('storage.user_store.UserSettings'),
         patch(
             'storage.lite_llm_manager.LiteLlmManager.migrate_entries',
@@ -269,7 +274,10 @@ async def test_migrate_user_contact_name_falls_back_to_username():
 
     with (
         patch('storage.user_store.session_maker', mock_sm),
-        patch('storage.user_store.decrypt_legacy_model', return_value={'keycloak_user_id': user_id}),
+        patch(
+            'storage.user_store.decrypt_legacy_model',
+            return_value={'keycloak_user_id': user_id},
+        ),
         patch('storage.user_store.UserSettings'),
         patch(
             'storage.lite_llm_manager.LiteLlmManager.migrate_entries',
