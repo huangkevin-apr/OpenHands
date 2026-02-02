@@ -164,6 +164,127 @@ def test_get_kwargs_from_settings():
     assert 'llm_api_key' not in kwargs
 
 
+# --- Tests for contact_name resolution in migrate_user() ---
+# migrate_user() should use resolve_display_name() to populate contact_name
+# from Keycloak name claims, falling back to username only when no real name
+# is available. This mirrors the create_user() fix and ensures migrated Org
+# records also store the user's actual display name.
+
+
+class _StopAfterOrgCreation(Exception):
+    """Halt migrate_user() after Org creation for contact_name inspection."""
+
+    pass
+
+
+@pytest.mark.asyncio
+async def test_migrate_user_contact_name_uses_name_claim():
+    """When user_info has a 'name' claim, migrate_user() should use it for contact_name."""
+    user_id = str(uuid.uuid4())
+    user_info = {
+        'username': 'jdoe',
+        'email': 'jdoe@example.com',
+        'name': 'John Doe',
+    }
+
+    mock_session = MagicMock()
+    mock_sm = MagicMock()
+    mock_sm.return_value.__enter__ = MagicMock(return_value=mock_session)
+    mock_sm.return_value.__exit__ = MagicMock(return_value=False)
+
+    mock_user_settings = MagicMock()
+    mock_user_settings.user_version = 1
+
+    with (
+        patch('storage.user_store.session_maker', mock_sm),
+        patch('storage.user_store.decrypt_legacy_model', return_value={'keycloak_user_id': user_id}),
+        patch('storage.user_store.UserSettings'),
+        patch(
+            'storage.lite_llm_manager.LiteLlmManager.migrate_entries',
+            new_callable=AsyncMock,
+            side_effect=_StopAfterOrgCreation,
+        ),
+    ):
+        with pytest.raises(_StopAfterOrgCreation):
+            await UserStore.migrate_user(user_id, mock_user_settings, user_info)
+
+    org = mock_session.add.call_args_list[0][0][0]
+    assert isinstance(org, Org)
+    assert org.contact_name == 'John Doe'
+
+
+@pytest.mark.asyncio
+async def test_migrate_user_contact_name_uses_given_family_names():
+    """When only given_name and family_name are present, migrate_user() should combine them."""
+    user_id = str(uuid.uuid4())
+    user_info = {
+        'username': 'jsmith',
+        'email': 'jsmith@example.com',
+        'given_name': 'Jane',
+        'family_name': 'Smith',
+    }
+
+    mock_session = MagicMock()
+    mock_sm = MagicMock()
+    mock_sm.return_value.__enter__ = MagicMock(return_value=mock_session)
+    mock_sm.return_value.__exit__ = MagicMock(return_value=False)
+
+    mock_user_settings = MagicMock()
+    mock_user_settings.user_version = 1
+
+    with (
+        patch('storage.user_store.session_maker', mock_sm),
+        patch('storage.user_store.decrypt_legacy_model', return_value={'keycloak_user_id': user_id}),
+        patch('storage.user_store.UserSettings'),
+        patch(
+            'storage.lite_llm_manager.LiteLlmManager.migrate_entries',
+            new_callable=AsyncMock,
+            side_effect=_StopAfterOrgCreation,
+        ),
+    ):
+        with pytest.raises(_StopAfterOrgCreation):
+            await UserStore.migrate_user(user_id, mock_user_settings, user_info)
+
+    org = mock_session.add.call_args_list[0][0][0]
+    assert isinstance(org, Org)
+    assert org.contact_name == 'Jane Smith'
+
+
+@pytest.mark.asyncio
+async def test_migrate_user_contact_name_falls_back_to_username():
+    """When no name claims exist, migrate_user() should fall back to username."""
+    user_id = str(uuid.uuid4())
+    user_info = {
+        'username': 'jdoe',
+        'email': 'jdoe@example.com',
+    }
+
+    mock_session = MagicMock()
+    mock_sm = MagicMock()
+    mock_sm.return_value.__enter__ = MagicMock(return_value=mock_session)
+    mock_sm.return_value.__exit__ = MagicMock(return_value=False)
+
+    mock_user_settings = MagicMock()
+    mock_user_settings.user_version = 1
+
+    with (
+        patch('storage.user_store.session_maker', mock_sm),
+        patch('storage.user_store.decrypt_legacy_model', return_value={'keycloak_user_id': user_id}),
+        patch('storage.user_store.UserSettings'),
+        patch(
+            'storage.lite_llm_manager.LiteLlmManager.migrate_entries',
+            new_callable=AsyncMock,
+            side_effect=_StopAfterOrgCreation,
+        ),
+    ):
+        with pytest.raises(_StopAfterOrgCreation):
+            await UserStore.migrate_user(user_id, mock_user_settings, user_info)
+
+    org = mock_session.add.call_args_list[0][0][0]
+    assert isinstance(org, Org)
+    assert org.contact_name == 'jdoe'
+
+
 # --- Tests for contact_name resolution in create_user() ---
 # create_user() should use resolve_display_name() to populate contact_name
 # from Keycloak name claims, falling back to preferred_username only when
