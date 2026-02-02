@@ -7,10 +7,12 @@ import { renderWithProviders } from "../../../test-utils";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const mockPosthogCapture = vi.fn();
+const mockUseFeatureFlagEnabled = vi.fn();
 vi.mock("posthog-js/react", () => ({
   usePostHog: () => ({
     capture: mockPosthogCapture,
   }),
+  useFeatureFlagEnabled: () => mockUseFeatureFlagEnabled(),
 }));
 
 describe("AccountSettingsContextMenu", () => {
@@ -55,6 +57,7 @@ describe("AccountSettingsContextMenu", () => {
     onLogoutMock.mockClear();
     onCloseMock.mockClear();
     mockPosthogCapture.mockClear();
+    mockUseFeatureFlagEnabled.mockClear();
   });
 
   it("should always render the right options", () => {
@@ -129,7 +132,8 @@ describe("AccountSettingsContextMenu", () => {
     expect(onCloseMock).toHaveBeenCalledOnce();
   });
 
-  it("should show Add Team Members button in SaaS mode", () => {
+  it("should show Add Team Members button in SaaS mode when feature flag is enabled", () => {
+    mockUseFeatureFlagEnabled.mockReturnValue(true);
     renderWithSaasConfig(
       <AccountSettingsContextMenu
         onLogout={onLogoutMock}
@@ -141,7 +145,21 @@ describe("AccountSettingsContextMenu", () => {
     expect(screen.getByText("SETTINGS$NAV_ADD_TEAM_MEMBERS")).toBeInTheDocument();
   });
 
-  it("should not show Add Team Members button in OSS mode", () => {
+  it("should not show Add Team Members button in SaaS mode when feature flag is disabled", () => {
+    mockUseFeatureFlagEnabled.mockReturnValue(false);
+    renderWithSaasConfig(
+      <AccountSettingsContextMenu
+        onLogout={onLogoutMock}
+        onClose={onCloseMock}
+      />,
+    );
+
+    expect(screen.queryByTestId("add-team-members-button")).not.toBeInTheDocument();
+    expect(screen.queryByText("SETTINGS$NAV_ADD_TEAM_MEMBERS")).not.toBeInTheDocument();
+  });
+
+  it("should not show Add Team Members button in OSS mode even when feature flag is enabled", () => {
+    mockUseFeatureFlagEnabled.mockReturnValue(true);
     renderWithOssConfig(
       <AccountSettingsContextMenu
         onLogout={onLogoutMock}
@@ -154,6 +172,7 @@ describe("AccountSettingsContextMenu", () => {
   });
 
   it("should fire Posthog event and call onClose when Add Team Members button is clicked", async () => {
+    mockUseFeatureFlagEnabled.mockReturnValue(true);
     renderWithSaasConfig(
       <AccountSettingsContextMenu
         onLogout={onLogoutMock}

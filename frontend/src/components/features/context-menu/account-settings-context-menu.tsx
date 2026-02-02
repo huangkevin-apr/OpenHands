@@ -1,7 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { usePostHog } from "posthog-js/react";
+import { usePostHog, useFeatureFlagEnabled } from "posthog-js/react";
 import { ContextMenu } from "#/ui/context-menu";
 import { ContextMenuListItem } from "./context-menu-list-item";
 import { Divider } from "#/ui/divider";
@@ -26,10 +26,14 @@ export function AccountSettingsContextMenu({
   const { t } = useTranslation();
   const posthog = usePostHog();
   const { data: config } = useConfig();
+  const isAddTeamMemberEnabled = useFeatureFlagEnabled(
+    "exp_add_team_member_button",
+  );
   // Get navigation items and filter out LLM settings if the feature flag is enabled
   const items = useSettingsNavItems();
 
   const isSaasMode = config?.APP_MODE === "saas";
+  const showAddTeamMembers = isSaasMode && isAddTeamMemberEnabled;
 
   const navItems = items.map((item) => ({
     ...item,
@@ -52,7 +56,7 @@ export function AccountSettingsContextMenu({
       alignment="right"
       className="mt-0 md:right-full md:left-full md:bottom-0 ml-0 w-fit z-[9999]"
     >
-      {isSaasMode && (
+      {showAddTeamMembers && (
         <ContextMenuListItem
           testId="add-team-members-button"
           onClick={handleAddTeamMembers}
