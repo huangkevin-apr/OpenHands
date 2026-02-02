@@ -88,6 +88,7 @@ export const SETTINGS_HANDLERS = [
       faulty_models: [],
       error_message: null,
       updated_at: new Date().toISOString(),
+      github_app_slug: mockSaas ? "openhands" : null,
     };
 
     return HttpResponse.json(config);

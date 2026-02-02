@@ -22,6 +22,7 @@ class DefaultWebClientConfigInjector(WebClientConfigInjector):
     faulty_models: list[str] = Field(default_factory=list)
     error_message: str | None = None
     updated_at: datetime = Field(default=datetime.fromisoformat('2026-01-19T00:00:00Z'))
+    github_app_slug: str | None = None
 
     async def get_web_client_config(self) -> WebClientConfig:
         from openhands.app_server.config import get_global_config
@@ -38,5 +39,6 @@ class DefaultWebClientConfigInjector(WebClientConfigInjector):
             faulty_models=self.faulty_models,
             error_message=self.error_message,
             updated_at=self.updated_at,
+            github_app_slug=self.github_app_slug,
         )
         return result

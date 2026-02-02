@@ -24,5 +24,6 @@ export const createMockWebClientConfig = (
   faulty_models: [],
   error_message: null,
   updated_at: new Date().toISOString(),
+  github_app_slug: null,
   ...overrides,
 });

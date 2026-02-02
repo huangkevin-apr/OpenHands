@@ -32,6 +32,7 @@ const VALID_OSS_CONFIG: WebClientConfig = {
   faulty_models: [],
   error_message: null,
   updated_at: "2024-01-14T10:00:00Z",
+  github_app_slug: null,
 };
 
 const VALID_SAAS_CONFIG: WebClientConfig = {
@@ -51,6 +52,7 @@ const VALID_SAAS_CONFIG: WebClientConfig = {
   faulty_models: [],
   error_message: null,
   updated_at: "2024-01-14T10:00:00Z",
+  github_app_slug: null,
 };
 
 const queryClient = new QueryClient();
@@ -256,6 +258,46 @@ describe("Content", () => {
       expect(
         screen.queryByTestId("gl-set-token-indicator"),
       ).toBeInTheDocument();
+    });
+  });
+
+  it("should render the 'Configure GitHub Repositories' button if SaaS mode and github_app_slug exists", async () => {
+    const getConfigSpy = vi.spyOn(OptionService, "getConfig");
+    getConfigSpy.mockResolvedValue(VALID_OSS_CONFIG);
+
+    const { rerender } = renderGitSettingsScreen();
+
+    let button = screen.queryByTestId("configure-github-repositories-button");
+    expect(button).not.toBeInTheDocument();
+
+    expect(screen.getByTestId("submit-button")).toBeInTheDocument();
+    expect(screen.getByTestId("disconnect-tokens-button")).toBeInTheDocument();
+
+    getConfigSpy.mockResolvedValue(VALID_SAAS_CONFIG);
+    queryClient.invalidateQueries();
+    rerender();
+
+    await waitFor(() => {
+      // wait until queries are resolved
+      expect(queryClient.isFetching()).toBe(0);
+      button = screen.queryByTestId("configure-github-repositories-button");
+      expect(button).not.toBeInTheDocument();
+    });
+
+    getConfigSpy.mockResolvedValue({
+      ...VALID_SAAS_CONFIG,
+      github_app_slug: "test-slug",
+    });
+    queryClient.invalidateQueries();
+    rerender();
+
+    await waitFor(() => {
+      button = screen.getByTestId("configure-github-repositories-button");
+      expect(button).toBeInTheDocument();
+      expect(screen.queryByTestId("submit-button")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("disconnect-tokens-button"),
+      ).not.toBeInTheDocument();
     });
   });
 });

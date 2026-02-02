@@ -157,6 +157,7 @@ describe("HomeScreen", () => {
       faulty_models: [],
       error_message: null,
       updated_at: "2024-01-14T10:00:00Z",
+      github_app_slug: null,
     });
 
     vi.spyOn(AuthService, "authenticate").mockResolvedValue(true);
@@ -463,6 +464,7 @@ describe("Settings 404", () => {
       faulty_models: [],
       error_message: null,
       updated_at: "2024-01-14T10:00:00Z",
+      github_app_slug: null,
     });
 
     vi.spyOn(AuthService, "authenticate").mockResolvedValue(true);
@@ -568,6 +570,7 @@ describe("Setup Payment modal", () => {
       faulty_models: [],
       error_message: null,
       updated_at: "2024-01-14T10:00:00Z",
+      github_app_slug: null,
     });
 
     vi.spyOn(AuthService, "authenticate").mockResolvedValue(true);

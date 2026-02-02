@@ -36,6 +36,7 @@ const createMockConfig = (
     faulty_models: [],
     error_message: null,
     updated_at: "2024-01-14T10:00:00Z",
+    github_app_slug: null,
     ...restOverrides,
   };
 };

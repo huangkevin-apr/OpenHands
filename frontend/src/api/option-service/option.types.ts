@@ -19,4 +19,5 @@ export interface WebClientConfig {
   faulty_models: string[];
   error_message: string | null;
   updated_at: string;
+  github_app_slug: string | null;
 }

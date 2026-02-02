@@ -26,3 +26,4 @@ class WebClientConfig(DiscriminatedUnionMixin):
     faulty_models: list[str]
     error_message: str | None
     updated_at: datetime
+    github_app_slug: str | None
