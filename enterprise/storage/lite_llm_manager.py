@@ -1202,22 +1202,25 @@ class LiteLlmManager:
                 # Found an existing OpenHands key for this org
                 key_name = key_info.get('key_name')
                 token = key_name[-4:] if key_name else None  # last 4 digits of key
-                if key_value.endswith(token):  # check if this is our current key
+                if token and key_value.endswith(
+                    token
+                ):  # check if this is our current key
                     found = True
                     break
             if (
                 not openhands_type
                 and team_id == org_id
                 and (
-                    key_alias
-                    == get_openhands_cloud_key_alias(keycloak_user_id, org_id)
+                    key_alias == get_openhands_cloud_key_alias(keycloak_user_id, org_id)
                     or key_alias == get_byor_key_alias(keycloak_user_id, org_id)
                 )
             ):
                 # Found an existing key for this org (regardless of type)
                 key_name = key_info.get('key_name')
                 token = key_name[-4:] if key_name else None  # last 4 digits of key
-                if key_value.endswith(token):  # check if this is our current key
+                if token and key_value.endswith(
+                    token
+                ):  # check if this is our current key
                     found = True
                     break
 

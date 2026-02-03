@@ -249,7 +249,7 @@ class SaasSettingsStore(SettingsStore):
         """
 
         # First, check if our current key is valid
-        if not await LiteLlmManager.verify_existing_key(
+        if item.llm_api_key and not await LiteLlmManager.verify_existing_key(
             item.llm_api_key.get_secret_value(),
             self.user_id,
             org_id,
