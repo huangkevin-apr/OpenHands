@@ -31,6 +31,16 @@ KEY_VERIFICATION_TIMEOUT = 5.0
 UNLIMITED_BUDGET_SETTING = 1000000000.0
 
 
+def get_openhands_cloud_key_alias(keycloak_user_id: str, org_id: str) -> str:
+    """Generate the key alias for OpenHands Cloud managed keys."""
+    return f'OpenHands Cloud - user {keycloak_user_id} - org {org_id}'
+
+
+def get_byor_key_alias(keycloak_user_id: str, org_id: str) -> str:
+    """Generate the key alias for BYOR (Bring Your Own Runtime) keys."""
+    return f'BYOR Key - user {keycloak_user_id}, org {org_id}'
+
+
 class LiteLlmManager:
     """Manage LiteLLM interactions."""
 
@@ -79,7 +89,7 @@ class LiteLlmManager:
                     client,
                     keycloak_user_id,
                     org_id,
-                    f'OpenHands Cloud - user {keycloak_user_id} - org {org_id}',
+                    get_openhands_cloud_key_alias(keycloak_user_id, org_id),
                     None,
                 )
 
@@ -251,7 +261,7 @@ class LiteLlmManager:
                             client,
                             keycloak_user_id,
                             org_id,
-                            f'OpenHands Cloud - user {keycloak_user_id} - org {org_id}',
+                            get_openhands_cloud_key_alias(keycloak_user_id, org_id),
                             None,
                         )
                         if new_key:
@@ -1200,8 +1210,8 @@ class LiteLlmManager:
                 and team_id == org_id
                 and (
                     key_alias
-                    == f'OpenHands Cloud - user {keycloak_user_id} - org {org_id}'
-                    or key_alias == f'BYOR Key - user {keycloak_user_id}, org {org_id}'
+                    == get_openhands_cloud_key_alias(keycloak_user_id, org_id)
+                    or key_alias == get_byor_key_alias(keycloak_user_id, org_id)
                 )
             ):
                 # Found an existing key for this org (regardless of type)
