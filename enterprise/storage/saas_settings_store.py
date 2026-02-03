@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from cryptography.fernet import Fernet
 from pydantic import SecretStr
+from server.constants import LITE_LLM_API_URL
 from server.logger import logger
 from sqlalchemy.orm import joinedload, sessionmaker
 from storage.database import session_maker
@@ -144,7 +145,7 @@ class SaasSettingsStore(SettingsStore):
 
             org_id = user.current_org_id
 
-            org_member = None
+            org_member: OrgMember = None
             for om in user.org_members:
                 if om.org_id == org_id:
                     org_member = om
@@ -152,17 +153,23 @@ class SaasSettingsStore(SettingsStore):
             if not org_member or not org_member.llm_api_key:
                 return None
 
-            org = session.query(Org).filter(Org.id == org_id).first()
+            org: Org = session.query(Org).filter(Org.id == org_id).first()
             if not org:
                 logger.error(
                     f'Org not found for ID {org_id} as the current org for user {self.user_id}'
                 )
                 return None
 
+            llm_base_url = (
+                org_member.llm_base_url
+                if org_member.llm_base_url
+                else org.default_llm_base_url
+            )
+
             # Check if provider is OpenHands and generate API key if needed
             if self._is_openhands_provider(item):
                 await self._ensure_api_key(item, str(org_id), openhands_type=True)
-            elif item.llm_api_key is None:
+            elif llm_base_url == LITE_LLM_API_URL:
                 await self._ensure_api_key(item, str(org_id))
 
             kwargs = item.model_dump(context={'expose_secrets': True})
