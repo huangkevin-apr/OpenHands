@@ -25,7 +25,7 @@ from openhands.server.settings import Settings
 from openhands.utils.http_session import httpx_verify_option
 
 # Timeout in seconds for BYOR key verification requests to LiteLLM
-BYOR_KEY_VERIFICATION_TIMEOUT = 5.0
+KEY_VERIFICATION_TIMEOUT = 5.0
 
 # A very large number to represent "unlimited" until LiteLLM fixes their unlimited update bug.
 UNLIMITED_BUDGET_SETTING = 1000000000.0
@@ -1044,7 +1044,7 @@ class LiteLlmManager:
         try:
             async with httpx.AsyncClient(
                 verify=httpx_verify_option(),
-                timeout=BYOR_KEY_VERIFICATION_TIMEOUT,
+                timeout=KEY_VERIFICATION_TIMEOUT,
             ) as client:
                 # Make a lightweight request to verify the key
                 # Using /v1/models endpoint as it's lightweight and requires authentication
@@ -1164,18 +1164,20 @@ class LiteLlmManager:
             return []
 
     @staticmethod
-    async def _get_existing_key(
+    async def _verify_existing_key(
         client: httpx.AsyncClient,
+        key_value: str,
         keycloak_user_id: str,
         org_id: str,
         openhands_type: bool = False,
-    ) -> SecretStr | None:
+    ) -> bool:
         """Check if an existing OpenHands key exists for the user/org and return it.
 
         Looks for keys with metadata type='openhands' and matching team_id.
 
         Returns the key value if found, None otherwise.
         """
+        found = False
         keys = await LiteLlmManager._get_all_keys_for_user(client, keycloak_user_id)
         for key_info in keys:
             metadata = key_info.get('metadata') or {}
@@ -1190,7 +1192,9 @@ class LiteLlmManager:
                 # Found an existing OpenHands key for this org
                 key_name = key_info.get('key_name')
                 token = key_name[-4:] if key_name else None  # last 4 digits of key
-                break
+                if key_value.endswith(token):  # check if this is our current key
+                    found = True
+                    break
             if (
                 not openhands_type
                 and team_id == org_id
@@ -1200,27 +1204,11 @@ class LiteLlmManager:
                 # Found an existing key for this org (regardless of type)
                 key_name = key_info.get('key_name')
                 token = key_name[-4:] if key_name else None  # last 4 digits of key
-                break
+                if key_value.endswith(token):  # check if this is our current key
+                    found = True
+                    break
 
-        if token:
-            # Get the org_member from the database to retrieve the full key
-            from storage.org_member_store import OrgMemberStore
-
-            org_member = await OrgMemberStore.get_org_member_async(
-                org_id, keycloak_user_id
-            )
-
-            if org_member.llm_api_key.get_secret_value().endswith(token):
-                logger.info(
-                    'LiteLlmManager:_get_existing_key:found',
-                    extra={
-                        'user_id': keycloak_user_id,
-                        'org_id': org_id,
-                    },
-                )
-                return org_member.llm_api_key
-
-        return None
+        return found
 
     @staticmethod
     async def _delete_key_by_alias(
@@ -1319,7 +1307,7 @@ class LiteLlmManager:
     update_user_in_team = staticmethod(with_http_client(_update_user_in_team))
     generate_key = staticmethod(with_http_client(_generate_key))
     get_key_info = staticmethod(with_http_client(_get_key_info))
-    get_existing_key = staticmethod(with_http_client(_get_existing_key))
+    verify_existing_key = staticmethod(with_http_client(_verify_existing_key))
     delete_key = staticmethod(with_http_client(_delete_key))
     get_user_keys = staticmethod(with_http_client(_get_user_keys))
     delete_key_by_alias = staticmethod(with_http_client(_delete_key_by_alias))

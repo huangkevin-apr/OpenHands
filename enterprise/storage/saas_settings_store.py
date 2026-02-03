@@ -248,49 +248,41 @@ class SaasSettingsStore(SettingsStore):
         if found. Otherwise, generates a new key.
         """
 
-        # First, check if an existing key exists for this user/org
-        existing_key = await LiteLlmManager.get_existing_key(
+        # First, check if our current key is valid
+        if not await LiteLlmManager.verify_existing_key(
+            item.llm_api_key.get_secret_value(),
             self.user_id,
             org_id,
             openhands_type=openhands_type,
-        )
+        ):
+            generated_key = None
+            if openhands_type:
+                generated_key = await LiteLlmManager.generate_key(
+                    self.user_id,
+                    org_id,
+                    None,
+                    {'type': 'openhands'},
+                )
+            else:
+                # Must delete any existing key with the same alias first
+                await LiteLlmManager.delete_key_by_alias(
+                    key_alias=f'OpenHands Cloud - user {self.user_id} - org {org_id}',
+                )
+                generated_key = await LiteLlmManager.generate_key(
+                    self.user_id,
+                    org_id,
+                    f'OpenHands Cloud - user {self.user_id} - org {org_id}',
+                    None,
+                )
 
-        if existing_key:
-            item.llm_api_key = existing_key
-            logger.info(
-                'saas_settings_store:store:reusing_existing_openhands_key',
-                extra={'user_id': self.user_id, 'org_id': org_id},
-            )
-            return
-
-        generated_key = None
-        if openhands_type:
-            generated_key = await LiteLlmManager.generate_key(
-                self.user_id,
-                org_id,
-                None,
-                {'type': 'openhands'},
-            )
-        else:
-            # Must delete any existing key with the same alias first
-            await LiteLlmManager.delete_key_by_alias(
-                key_alias=f'OpenHands Cloud - user {self.user_id} - org {org_id}',
-            )
-            generated_key = await LiteLlmManager.generate_key(
-                self.user_id,
-                org_id,
-                f'OpenHands Cloud - user {self.user_id} - org {org_id}',
-                None,
-            )
-
-        if generated_key:
-            item.llm_api_key = SecretStr(generated_key)
-            logger.info(
-                'saas_settings_store:store:generated_openhands_key',
-                extra={'user_id': self.user_id},
-            )
-        else:
-            logger.warning(
-                'saas_settings_store:store:failed_to_generate_openhands_key',
-                extra={'user_id': self.user_id},
-            )
+            if generated_key:
+                item.llm_api_key = SecretStr(generated_key)
+                logger.info(
+                    'saas_settings_store:store:generated_openhands_key',
+                    extra={'user_id': self.user_id},
+                )
+            else:
+                logger.warning(
+                    'saas_settings_store:store:failed_to_generate_openhands_key',
+                    extra={'user_id': self.user_id},
+                )
