@@ -143,9 +143,7 @@ class SaasSettingsStore(SettingsStore):
                     return None
 
             org_id = user.current_org_id
-            # Check if provider is OpenHands and generate API key if needed
-            if self._is_openhands_provider(item):
-                await self._ensure_openhands_api_key(item, str(org_id))
+
             org_member = None
             for om in user.org_members:
                 if om.org_id == org_id:
@@ -153,12 +151,19 @@ class SaasSettingsStore(SettingsStore):
                     break
             if not org_member or not org_member.llm_api_key:
                 return None
+
             org = session.query(Org).filter(Org.id == org_id).first()
             if not org:
                 logger.error(
                     f'Org not found for ID {org_id} as the current org for user {self.user_id}'
                 )
                 return None
+
+            # Check if provider is OpenHands and generate API key if needed
+            if self._is_openhands_provider(item):
+                await self._ensure_api_key(item, str(org_id), openhands_type=True)
+            elif item.llm_api_key is None:
+                await self._ensure_api_key(item, str(org_id))
 
             kwargs = item.model_dump(context={'expose_secrets': True})
             for model in (user, org, org_member):
@@ -227,28 +232,49 @@ class SaasSettingsStore(SettingsStore):
         """Check if the settings use the OpenHands provider."""
         return bool(item.llm_model and item.llm_model.startswith('openhands/'))
 
-    async def _ensure_openhands_api_key(self, item: Settings, org_id: str) -> None:
+    async def _ensure_api_key(
+        self, item: Settings, org_id: str, openhands_type: bool = False
+    ) -> None:
         """Generate and set the OpenHands API key for the given settings.
 
         First checks if an existing key exists for the user and reuses it
         if found. Otherwise, generates a new key.
         """
-        # Check if user already has keys in LiteLLM
-        existing_keys = await LiteLlmManager.get_user_keys(self.user_id)
-        if existing_keys:
+
+        # First, check if an existing key exists for this user/org
+        existing_key = await LiteLlmManager.get_existing_key(
+            self.user_id,
+            org_id,
+            openhands_type=openhands_type,
+        )
+
+        if existing_key:
+            item.llm_api_key = existing_key
             logger.info(
-                'saas_settings_store:store:user_already_has_keys',
-                extra={'user_id': self.user_id, 'key_count': len(existing_keys)},
+                'saas_settings_store:store:reusing_existing_openhands_key',
+                extra={'user_id': self.user_id, 'org_id': org_id},
             )
             return
 
-        # Generate new key only if none exists
-        generated_key = await LiteLlmManager.generate_key(
-            self.user_id,
-            org_id,
-            None,
-            {'type': 'openhands'},
-        )
+        generated_key = None
+        if openhands_type:
+            generated_key = await LiteLlmManager.generate_key(
+                self.user_id,
+                org_id,
+                None,
+                {'type': 'openhands'},
+            )
+        else:
+            # Must delete any existing key with the same alias first
+            await LiteLlmManager.delete_key_by_alias(
+                key_alias=f'OpenHands Cloud - user {self.user_id} - org {org_id}',
+            )
+            generated_key = await LiteLlmManager.generate_key(
+                self.user_id,
+                org_id,
+                f'OpenHands Cloud - user {self.user_id} - org {org_id}',
+                None,
+            )
 
         if generated_key:
             item.llm_api_key = SecretStr(generated_key)

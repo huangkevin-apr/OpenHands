@@ -1124,6 +1124,105 @@ class LiteLlmManager:
         }
 
     @staticmethod
+    async def _get_all_keys_for_user(
+        client: httpx.AsyncClient,
+        keycloak_user_id: str,
+    ) -> list[dict]:
+        """Get all keys for a user from LiteLLM.
+
+        Returns a list of key info dictionaries containing:
+        - token: the key value (hashed or partial)
+        - key_alias: the alias for the key
+        - key_name: the name of the key
+        - spend: the amount spent on this key
+        - max_budget: the max budget for this key
+        - team_id: the team the key belongs to
+        - metadata: any metadata associated with the key
+
+        Returns an empty list if no keys found or on error.
+        """
+        if LITE_LLM_API_KEY is None or LITE_LLM_API_URL is None:
+            logger.warning('LiteLLM API configuration not found')
+            return []
+
+        try:
+            response = await client.get(
+                f'{LITE_LLM_API_URL}/user/info?user_id={keycloak_user_id}',
+            )
+            response.raise_for_status()
+            user_json = response.json()
+            # The user/info endpoint returns keys in the 'keys' field
+            return user_json.get('keys', [])
+        except Exception as e:
+            logger.warning(
+                'LiteLlmManager:_get_all_keys_for_user:error',
+                extra={
+                    'user_id': keycloak_user_id,
+                    'error': str(e),
+                },
+            )
+            return []
+
+    @staticmethod
+    async def _get_existing_key(
+        client: httpx.AsyncClient,
+        keycloak_user_id: str,
+        org_id: str,
+        openhands_type: bool = False,
+    ) -> SecretStr | None:
+        """Check if an existing OpenHands key exists for the user/org and return it.
+
+        Looks for keys with metadata type='openhands' and matching team_id.
+
+        Returns the key value if found, None otherwise.
+        """
+        keys = await LiteLlmManager._get_all_keys_for_user(client, keycloak_user_id)
+        for key_info in keys:
+            metadata = key_info.get('metadata') or {}
+            team_id = key_info.get('team_id')
+            key_alias = key_info.get('key_alias')
+            token = None
+            if (
+                openhands_type
+                and metadata.get('type') == 'openhands'
+                and team_id == org_id
+            ):
+                # Found an existing OpenHands key for this org
+                key_name = key_info.get('key_name')
+                token = key_name[-4:] if key_name else None  # last 4 digits of key
+                break
+            if (
+                not openhands_type
+                and team_id == org_id
+                and key_alias
+                == f'OpenHands Cloud - user {keycloak_user_id} - org {org_id}'
+            ):
+                # Found an existing key for this org (regardless of type)
+                key_name = key_info.get('key_name')
+                token = key_name[-4:] if key_name else None  # last 4 digits of key
+                break
+
+        if token:
+            # Get the org_member from the database to retrieve the full key
+            from storage.org_member_store import OrgMemberStore
+
+            org_member = await OrgMemberStore.get_org_member_async(
+                org_id, keycloak_user_id
+            )
+
+            if org_member.llm_api_key.get_secret_value().endswith(token):
+                logger.info(
+                    'LiteLlmManager:_get_existing_key:found',
+                    extra={
+                        'user_id': keycloak_user_id,
+                        'org_id': org_id,
+                    },
+                )
+                return org_member.llm_api_key
+
+        return None
+
+    @staticmethod
     async def _delete_key_by_alias(
         client: httpx.AsyncClient,
         key_alias: str,
@@ -1220,6 +1319,8 @@ class LiteLlmManager:
     update_user_in_team = staticmethod(with_http_client(_update_user_in_team))
     generate_key = staticmethod(with_http_client(_generate_key))
     get_key_info = staticmethod(with_http_client(_get_key_info))
+    get_existing_key = staticmethod(with_http_client(_get_existing_key))
     delete_key = staticmethod(with_http_client(_delete_key))
     get_user_keys = staticmethod(with_http_client(_get_user_keys))
+    delete_key_by_alias = staticmethod(with_http_client(_delete_key_by_alias))
     update_user_keys = staticmethod(with_http_client(_update_user_keys))
