@@ -1198,8 +1198,11 @@ class LiteLlmManager:
             if (
                 not openhands_type
                 and team_id == org_id
-                and key_alias
-                == f'OpenHands Cloud - user {keycloak_user_id} - org {org_id}'
+                and (
+                    key_alias
+                    == f'OpenHands Cloud - user {keycloak_user_id} - org {org_id}'
+                    or key_alias == f'BYOR Key - user {keycloak_user_id}, org {org_id}'
+                )
             ):
                 # Found an existing key for this org (regardless of type)
                 key_name = key_info.get('key_name')
