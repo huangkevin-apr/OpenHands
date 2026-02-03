@@ -10,16 +10,15 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 from server.auth.authorization import (
-    OrgRole,
     ROLE_HIERARCHY,
+    OrgRole,
     get_user_org_role,
     has_required_role,
-    require_org_role,
-    require_org_user,
     require_org_admin,
     require_org_owner,
+    require_org_role,
+    require_org_user,
 )
-
 
 # =============================================================================
 # Tests for OrgRole enum
